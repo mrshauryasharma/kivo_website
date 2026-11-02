@@ -1,0 +1,277 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Download,
+  Info,
+  Clock,
+  Bell,
+} from 'lucide-react';
+import { DOWNLOAD_CONFIG } from '../config/downloadConfig';
+import type { PlatformDownloadConfig } from '../config/downloadConfig';
+import { WindowsIcon, AppleIcon } from './Hero';
+import { MagneticButton } from './MagneticButton';
+
+interface DownloadSectionProps {
+  onOpenEarlyAccess: (platform: 'windows' | 'macos') => void;
+}
+
+export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAccess }) => {
+  const { windows, macos, latestVersion, releaseDate } = DOWNLOAD_CONFIG;
+
+  const handleDownloadClick = (e: React.MouseEvent, config: PlatformDownloadConfig) => {
+    if (!config.downloadUrl) {
+      e.preventDefault();
+      onOpenEarlyAccess(config.platform);
+    } else {
+      // Real verified download URL exists: let native browser download proceed
+      window.location.href = config.downloadUrl;
+    }
+  };
+
+  return (
+    <section id="download" className="py-24 sm:py-32 relative overflow-hidden bg-[#060912]">
+      {/* Background ambient lighting with organic drift */}
+      <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-[600px] h-[600px] bg-kivo-blue/15 blur-[160px] rounded-full pointer-events-none animate-ambient-orb" />
+      <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-kivo-purple/15 blur-[160px] rounded-full pointer-events-none animate-pulse-glow" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* Section Header */}
+        <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs font-semibold text-kivo-cyan mb-4"
+          >
+            <Download className="w-3.5 h-3.5 text-kivo-cyan" />
+            <span>Official Desktop Releases</span>
+          </motion.div>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-display mb-6"
+          >
+            Your Next Browser{' '}
+            <span className="text-gradient-kivo">
+              Is Here.
+            </span>
+          </motion.h2>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-base sm:text-lg text-slate-400 leading-relaxed font-normal"
+          >
+            Experience a new way to browse. Get KIVO for your desktop.
+          </motion.p>
+        </div>
+
+        {/* Two Large Download Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          {/* Windows Download Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="group relative rounded-3xl bg-gradient-to-b from-[#0E1528]/90 to-[#070B14]/95 border border-white/[0.1] hover:border-kivo-blue/40 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-glow-blue flex flex-col justify-between"
+          >
+            <div>
+              {/* Card Header: Platform Icon + Status */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-kivo-blue/15 border border-kivo-blue/30 flex items-center justify-center text-kivo-cyan shadow-sm">
+                  <WindowsIcon className="w-7 h-7" />
+                </div>
+                {windows.downloadUrl ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Available Now
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                    <Clock className="w-3.5 h-3.5 text-amber-300" />
+                    Coming Soon
+                  </span>
+                )}
+              </div>
+
+              {/* Title & Specs */}
+              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 font-display">
+                {windows.name}
+              </h3>
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Native build optimized for Windows desktop workstations and laptops.
+              </p>
+
+              {/* Technical Specifications List */}
+              <div className="space-y-3 mb-8 bg-black/30 p-4 rounded-xl border border-white/[0.05]">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Supported OS:</span>
+                  <span className="font-semibold text-slate-200">{windows.osTarget}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Architecture:</span>
+                  <span className="font-semibold text-slate-200">{windows.architecture}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Package Format:</span>
+                  <span className="font-mono text-kivo-cyan font-medium">{windows.installerFormat}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Target Version:</span>
+                  <span className="font-mono text-slate-300">{windows.version}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Download CTA Button */}
+            <div>
+              {windows.downloadUrl ? (
+                <MagneticButton strength={0.15} className="w-full">
+                  <a
+                    href={windows.downloadUrl}
+                    download
+                    onClick={(e) => handleDownloadClick(e, windows)}
+                    className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-kivo-blue/20 block text-center"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
+                    <div className="relative flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-kivo-blue to-kivo-purple text-base font-bold text-white">
+                      <Download className="w-5 h-5 text-white" />
+                      <span>Download for Windows (.exe)</span>
+                    </div>
+                  </a>
+                </MagneticButton>
+              ) : (
+                <div className="space-y-3">
+                  <MagneticButton strength={0.12} className="w-full">
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownloadClick(e, windows)}
+                      className="w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.12] hover:border-kivo-cyan/30 text-base font-semibold transition-all group/btn"
+                    >
+                      <Bell className="w-5 h-5 text-kivo-cyan group-hover/btn:scale-110 transition-transform" />
+                      <span>Get Windows Release Notification</span>
+                    </button>
+                  </MagneticButton>
+                  <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Direct installer binary coming soon. Final build validation in progress.</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* macOS Download Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="group relative rounded-3xl bg-gradient-to-b from-[#0E1528]/90 to-[#070B14]/95 border border-white/[0.1] hover:border-kivo-purple/40 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-glow-purple flex flex-col justify-between"
+          >
+            <div>
+              {/* Card Header: Platform Icon + Status */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-kivo-purple/15 border border-kivo-purple/30 flex items-center justify-center text-slate-200 shadow-sm">
+                  <AppleIcon className="w-7 h-7" />
+                </div>
+                {macos.downloadUrl ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Available Now
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                    <Clock className="w-3.5 h-3.5 text-amber-300" />
+                    Coming Soon
+                  </span>
+                )}
+              </div>
+
+              {/* Title & Specs */}
+              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 font-display">
+                {macos.name}
+              </h3>
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Native build for macOS, supporting Apple Silicon and Intel machines.
+              </p>
+
+              {/* Technical Specifications List */}
+              <div className="space-y-3 mb-8 bg-black/30 p-4 rounded-xl border border-white/[0.05]">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Supported OS:</span>
+                  <span className="font-semibold text-slate-200">{macos.osTarget}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Architecture:</span>
+                  <span className="font-semibold text-slate-200">{macos.architecture}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Package Format:</span>
+                  <span className="font-mono text-kivo-purple font-medium">{macos.installerFormat}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Target Version:</span>
+                  <span className="font-mono text-slate-300">{macos.version}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Download CTA Button */}
+            <div>
+              {macos.downloadUrl ? (
+                <MagneticButton strength={0.15} className="w-full">
+                  <a
+                    href={macos.downloadUrl}
+                    download
+                    onClick={(e) => handleDownloadClick(e, macos)}
+                    className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-kivo-purple/20 block text-center"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
+                    <div className="relative flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-kivo-blue to-kivo-purple text-base font-bold text-white">
+                      <Download className="w-5 h-5 text-white" />
+                      <span>Download for macOS (.dmg)</span>
+                    </div>
+                  </a>
+                </MagneticButton>
+              ) : (
+                <div className="space-y-3">
+                  <MagneticButton strength={0.12} className="w-full">
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownloadClick(e, macos)}
+                      className="w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.12] hover:border-kivo-purple/30 text-base font-semibold transition-all group/btn"
+                    >
+                      <Bell className="w-5 h-5 text-kivo-purple group-hover/btn:scale-110 transition-transform" />
+                      <span>Get macOS Release Notification</span>
+                    </button>
+                  </MagneticButton>
+                  <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Direct installer binary coming soon. Final build validation in progress.</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Transparent Release Integrity Notice */}
+        <div className="mt-12 text-center max-w-2xl mx-auto p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] text-xs text-slate-400">
+          <div className="flex items-center justify-center gap-2 mb-2 text-slate-300 font-mono text-[11px]">
+            <span>Latest Planned Release: {latestVersion}</span>
+            <span>•</span>
+            <span>Target: {releaseDate}</span>
+          </div>
+          <p>
+            <strong className="text-slate-300 font-semibold">Integrity Commitment:</strong> KIVO downloads are verified binaries directly signed for production. We do not distribute bundles with unwanted sponsored third-party tools or adware.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
