@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Download,
@@ -59,12 +59,40 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
   const macVersion = macAvailable && activeMacLive.version ? activeMacLive.version : macos.version;
   const macSize = macAvailable && activeMacLive.size ? formatBytes(activeMacLive.size) : macos.fileSize;
 
+  // Track last click timestamp per platform to prevent accidental rapid double-clicks
+  const lastClickTimeRef = useRef<Record<string, number>>({});
+
   const handleDownloadClick = (e: React.MouseEvent, config: PlatformDownloadConfig, activeUrl?: string | null) => {
+    // Prevent event bubbling to parent containers
+    e.stopPropagation();
+
     const targetUrl = activeUrl !== undefined ? activeUrl : config.downloadUrl;
+
     if (!targetUrl) {
       e.preventDefault();
       onOpenEarlyAccess(config.platform);
-    } else {
+      return;
+    }
+
+    // Debounce rapid repeated clicks within 1500ms
+    const now = Date.now();
+    const lastClick = lastClickTimeRef.current[config.platform] || 0;
+    if (now - lastClick < 1500) {
+      e.preventDefault();
+      return;
+    }
+    lastClickTimeRef.current[config.platform] = now;
+
+    // If triggered on an anchor tag with a valid href and download attribute,
+    // do NOT invoke window.location.href, which causes duplicate downloads.
+    // The native anchor click handles the single download cleanly.
+    const currentTarget = e.currentTarget as HTMLElement | null;
+    const isAnchorWithHref =
+      currentTarget instanceof HTMLAnchorElement &&
+      Boolean(currentTarget.getAttribute('href')) &&
+      currentTarget.getAttribute('href') !== '#';
+
+    if (!isAnchorWithHref) {
       window.location.href = targetUrl;
     }
   };
