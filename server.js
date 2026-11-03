@@ -27,12 +27,27 @@ import {
   completeUpload,
   cancelUpload,
 } from './server/chunkedUpload.js';
+import {
+  securityHeaders,
+  corsProtection,
+  blockRestrictedAccess,
+  apiRateLimiter,
+  validateUploadInitBody,
+  validateUploadId,
+  safeErrorHandler,
+} from './server/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Disable x-powered-by header (OWASP best practice)
+app.disable('x-powered-by');
+
+// Trust reverse proxy (GoDaddy, Cloudflare, Nginx) for accurate IP and HTTPS detection
 app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
@@ -44,32 +59,46 @@ if (!fs.existsSync(distPath) || !fs.existsSync(indexPath)) {
   );
 }
 
-// Global middlewares
+// -------------------------------------------------------------
+// Core Security Middlewares (Executed before any route processing)
+// -------------------------------------------------------------
+
+// 1. Enforce HTTPS, HSTS, CSP, nosniff, frame-ancestors, Permissions-Policy
+app.use(securityHeaders);
+
+// 2. Strict CORS protection for API routes
+app.use(corsProtection);
+
+// 3. Block path traversal, hidden files (.env, .git), source maps (.map), and private dirs
+app.use(blockRestrictedAccess);
+
+// 4. Rate limiters
+app.use('/api/', apiRateLimiter('public'));
+app.use('/api/admin/', apiRateLimiter('admin'));
+
+// 5. Body and cookie parsing
 app.use(cookieParser());
-app.use(express.json({ limit: '2mb' }));
-// Raw binary body parser for chunk uploads (accepts application/octet-stream up to 20MB)
-app.use('/api/admin/upload/chunk', express.raw({ type: 'application/octet-stream', limit: '25mb' }));
+app.use(express.json({ limit: '1mb' }));
+
+// Raw binary body parser for chunk uploads (accepts application/octet-stream up to 25MB)
+app.use(
+  '/api/admin/upload/chunk',
+  express.raw({ type: 'application/octet-stream', limit: '25mb' })
+);
 
 // -------------------------------------------------------------
 // Public Health & Download Endpoints
 // -------------------------------------------------------------
 
-// Health check endpoint for GoDaddy deployment / load balancer monitors
+// Sanitized Health check endpoint (never exposes internal filesystem paths or system specs)
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    app: 'KIVO Browser Official Website',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    uploadsDir: UPLOADS_DIR,
-  });
+  res.status(200).json({ status: 'ok' });
 });
 
 // Public status of installers (used dynamically by website download cards)
 app.get('/api/downloads/status', (req, res) => {
   try {
     const meta = getMetadata();
-    // Return sanitized public info (omit internal file paths)
     const publicStatus = {};
     for (const [key, rule] of Object.entries(PLATFORM_RULES)) {
       const item = meta[key];
@@ -110,6 +139,9 @@ app.get('/api/downloads/status', (req, res) => {
 // Public installer download stream
 app.get('/api/download/:platform', (req, res) => {
   const { platform } = req.params;
+  if (!PLATFORM_RULES[platform]) {
+    return res.status(404).send('Invalid platform specified.');
+  }
   handleDownloadStream(req, res, platform);
 });
 
@@ -136,7 +168,6 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   // Set HttpOnly, SameSite cookie for session
-  // Auto-detect HTTPS even behind reverse proxies
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
 
   res.cookie('kivo_admin_session', result.sessionCookie, {
@@ -211,25 +242,30 @@ app.get('/api/admin/installers', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 1: Initialize chunked upload
+// Step 1: Initialize chunked upload with input validation
 app.post('/api/admin/upload/init', requireAdminAuth, (req, res) => {
   try {
-    const { platform, filename, version, totalSize, totalChunks } = req.body;
-    const sessionInfo = initUpload({ platform, filename, version, totalSize, totalChunks });
+    const sanitizedParams = validateUploadInitBody(req.body, PLATFORM_RULES);
+    const sessionInfo = initUpload(sanitizedParams);
     res.status(200).json(sessionInfo);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Step 2: Receive single chunk
+// Step 2: Receive single chunk with validation
 app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
   try {
-    const uploadId = req.query.uploadId || req.headers['x-upload-id'];
-    const chunkIndex = req.query.chunkIndex || req.headers['x-chunk-index'];
+    const uploadId = validateUploadId(
+      (req.query.uploadId || req.headers['x-upload-id'])?.toString()
+    );
+    const chunkIndex = parseInt(
+      (req.query.chunkIndex || req.headers['x-chunk-index'])?.toString(),
+      10
+    );
 
-    if (!uploadId || chunkIndex === undefined) {
-      return res.status(400).json({ error: 'uploadId and chunkIndex parameters are required.' });
+    if (isNaN(chunkIndex) || chunkIndex < 0) {
+      return res.status(400).json({ error: 'Valid chunkIndex parameter is required.' });
     }
 
     const chunkBuffer = req.body;
@@ -243,13 +279,13 @@ app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
 // Step 3: Complete chunked upload and assemble file
 app.post('/api/admin/upload/complete', requireAdminAuth, async (req, res) => {
   try {
-    const { uploadId } = req.body;
-    if (!uploadId) {
-      return res.status(400).json({ error: 'uploadId parameter is required.' });
-    }
-
+    const uploadId = validateUploadId(req.body?.uploadId);
     const completedMetadata = await completeUpload(uploadId);
-    res.status(200).json({ success: true, metadata: completedMetadata, installer: completedMetadata });
+    res.status(200).json({
+      success: true,
+      metadata: completedMetadata,
+      installer: completedMetadata,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -258,8 +294,8 @@ app.post('/api/admin/upload/complete', requireAdminAuth, async (req, res) => {
 // Cancel active upload
 app.post('/api/admin/upload/cancel', requireAdminAuth, (req, res) => {
   try {
-    const { uploadId } = req.body;
-    if (uploadId) cancelUpload(uploadId);
+    const uploadId = validateUploadId(req.body?.uploadId);
+    cancelUpload(uploadId);
     res.status(200).json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -270,6 +306,9 @@ app.post('/api/admin/upload/cancel', requireAdminAuth, (req, res) => {
 app.delete('/api/admin/installers/:platform', requireAdminAuth, (req, res) => {
   try {
     const { platform } = req.params;
+    if (!PLATFORM_RULES[platform]) {
+      return res.status(400).json({ error: 'Invalid platform parameter.' });
+    }
     deleteInstaller(platform);
     res.status(200).json({ success: true, message: `Installer for ${platform} deleted.` });
   } catch (err) {
@@ -281,9 +320,12 @@ app.delete('/api/admin/installers/:platform', requireAdminAuth, (req, res) => {
 // Static Asset Serving & SPA Fallback
 // -------------------------------------------------------------
 
-// Serve static assets with caching for hashed files
+// Serve static assets without directory listing and with immutable caching for hashed files
 app.use(
   express.static(distPath, {
+    dotfiles: 'ignore',
+    index: false, // Prevents directory listing / default index inside subdirectories
+    redirect: false,
     maxAge: '1d',
     setHeaders: (res, filePath) => {
       // Aggressive caching for hashed assets in assets/
@@ -297,14 +339,29 @@ app.use(
   })
 );
 
-// SPA fallback: any route (including /kivoadmin) not matching a static file returns index.html
+// SPA fallback: only handle GET/HEAD requests for client-side routing (e.g. /, /kivoadmin)
+// Reject missing files with 404 instead of serving HTML
 app.use((req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return res.status(404).json({ error: 'Endpoint not found.' });
+  }
+
+  // If request has a file extension (e.g. missing .png, .js, .css), return 404
+  if (path.extname(req.path)) {
+    return res.status(404).send('Not Found');
+  }
+
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
     res.status(404).send('Application build not found. Please run npm run build.');
   }
 });
+
+// -------------------------------------------------------------
+// Safe Global Error Handler (Hides internal stack traces & paths)
+// -------------------------------------------------------------
+app.use(safeErrorHandler);
 
 app.listen(PORT, () => {
   console.log(`[KIVO Web Server] Listening on port ${PORT}`);

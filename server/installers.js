@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import {
   METADATA_FILE,
   PLATFORM_RULES,
@@ -87,7 +88,8 @@ export function handleDownloadStream(req, res, platform) {
   const fileSize = stat.size;
   const range = req.headers.range;
 
-  const downloadFilename = installer.filename || rule.defaultFileName;
+  const rawFilename = installer.filename || rule.defaultFileName;
+  const safeFilename = path.basename(rawFilename).replace(/["\r\n\t]/g, '_');
 
   if (range) {
     // Range request: e.g. "bytes=0-1024"
@@ -108,7 +110,7 @@ export function handleDownloadStream(req, res, platform) {
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
       'Content-Type': rule.mimeType,
-      'Content-Disposition': `attachment; filename="${downloadFilename}"`,
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
     });
     fileStream.pipe(res);
   } else {
@@ -116,7 +118,7 @@ export function handleDownloadStream(req, res, platform) {
     res.writeHead(200, {
       'Content-Length': fileSize,
       'Content-Type': rule.mimeType,
-      'Content-Disposition': `attachment; filename="${downloadFilename}"`,
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'public, max-age=3600',
     });

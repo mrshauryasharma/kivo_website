@@ -78,8 +78,8 @@ When creating or configuring your Node.js application in GoDaddy:
 
 1. Open your browser and navigate to `https://yourdomain.com/kivoadmin`.
 2. Sign in with:
-   - **Username:** `kivoadminshaurya`
-   - **Password:** Your configured `ADMIN_PASSWORD`
+   - **Username:** `kivoadminshaurya` (or your configured `KIVO_ADMIN_USERNAME`)
+   - **Password:** Your configured `KIVO_ADMIN_PASSWORD`
 3. In the Release Management Dashboard:
    - Set the release version (e.g. `1.0.0`).
    - Select or drag-and-drop the installer:
@@ -89,3 +89,25 @@ When creating or configuring your Node.js application in GoDaddy:
    - Monitor the live chunked upload progress bar (supports files up to 2 GB).
    - Once complete, verify the generated SHA-256 integrity hash.
 4. The main website download buttons will automatically activate for your users!
+
+---
+
+## 6. Production Security Architecture
+
+The application has been hardened with OWASP-aligned production security:
+
+### Implemented Protections
+- **HTTPS & HSTS:** Automatic 301 redirection to HTTPS in production; HSTS header (`Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`).
+- **Content Security Policy (CSP):** Restricts script execution to self, enforces Google Fonts whitelisting, prevents object/plugin execution, and enforces `frame-ancestors 'none'` to eliminate clickjacking.
+- **MIME & Browser Protections:** `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, `X-XSS-Protection: 0`, `Permissions-Policy`.
+- **Server Identity Masking:** `X-Powered-By` header disabled; sanitized health check endpoint at `/health` with no system paths or internals.
+- **Directory Listing Disabled:** Subdirectory browsing is disabled; requests for missing file extensions return HTTP 404 rather than leaking directory indexes or returning HTML.
+- **Access Control & Path Traversal Block:** Rejects dotfiles (`.env`, `.git`), source maps (`*.map`), private server files (`server.js`, `package.json`, `tsconfig.json`), and private folders (`/server/`, `/storage/`, `/src/`).
+- **CORS Restriction:** Cross-origin API access from untrusted external domains is blocked with HTTP 403.
+- **Rate Limiting:** Public API limited to 120 req/min; Admin API limited to 60 req/min; Login strictly limited to 5 failed attempts per 15 mins.
+- **Source Maps Disabled:** `build.sourcemap: false` configured in Vite build; no `.map` files are generated or publicly served.
+- **Error Shielding:** Global error handler catches unexpected exceptions and suppresses internal paths or stack traces from visitors.
+
+### Transparent Security Disclosure
+- **What is protected:** All backend logic, admin authentication secrets, session tokens, CSRF validation, raw installer storage, and private server files are strictly protected on the server.
+- **What cannot be hidden:** In any web application, production client-side HTML, CSS, bundled JavaScript, and static assets delivered to a visitor's browser are executed and interpreted by the browser engine and can be inspected via Browser Developer Tools. No sensitive credentials, private keys, or admin tokens exist in the client-side JavaScript.
