@@ -8,6 +8,8 @@ import { PrivacySection } from './components/PrivacySection';
 import { BrowserShowcase } from './components/BrowserShowcase';
 import { AboutSection } from './components/AboutSection';
 import { DownloadSection } from './components/DownloadSection';
+import { CeoSection } from './components/CeoSection';
+import { CeoBottomSection } from './components/CeoBottomSection';
 import { Footer } from './components/Footer';
 import { LegalModal } from './components/LegalModal';
 import { EarlyAccessModal } from './components/EarlyAccessModal';
@@ -74,6 +76,9 @@ export function App() {
           {/* Section 4: Hero */}
           <Hero />
 
+          {/* Section: About the CEO & Co-Founder (Top Section) */}
+          <CeoSection />
+
           {/* Section 5: Features */}
           <Features />
 
@@ -88,6 +93,9 @@ export function App() {
 
           {/* Section 8: Download */}
           <DownloadSection onOpenEarlyAccess={handleOpenEarlyAccess} />
+
+          {/* Section: Meet Our CEO & Co-Founder (Bottom Section) */}
+          <CeoBottomSection />
         </main>
 
         {/* Section 10: Footer */}
