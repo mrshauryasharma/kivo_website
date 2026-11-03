@@ -7,8 +7,10 @@
   "scripts": {
     "start": "node server.js",
     "build": "tsc -b && vite build",
+    "serve": "node server.js",
+    "prod": "node server.js",
     "dev": "vite",
-    "preview": "vite preview",
+    "preview": "node server.js",
     "lint": "oxlint"
   },
   "engines": {

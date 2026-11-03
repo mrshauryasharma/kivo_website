@@ -85,15 +85,15 @@ export function authenticateAdmin(username, password, ip) {
   // Retrieve current environment credentials
   const { rawUsername, rawPassword } = getAdminCredentials();
 
-  // Requirement 6: Clear server-side error if either environment variable is missing
-  if (!rawUsername || !rawPassword) {
+  // Requirement: Clear server-side error if the required password secret is missing
+  if (!rawPassword) {
     console.error(
-      '[KIVO Auth Diagnostic] ❌ Login rejected: KIVO_ADMIN_USERNAME or KIVO_ADMIN_PASSWORD is missing in server environment.'
+      '[KIVO Auth Diagnostic] ❌ Login rejected: The secret KIVO_ADMIN_PASSWORD is not configured in GoDaddy environment variables.'
     );
     return {
       success: false,
       error:
-        'Admin authentication is not configured on the server. Please configure KIVO_ADMIN_USERNAME and KIVO_ADMIN_PASSWORD in server environment variables.',
+        'Admin authentication is not configured on the server. The secret KIVO_ADMIN_PASSWORD is missing in GoDaddy environment variables.',
       code: 'AUTH_ENV_MISSING',
       status: 500,
     };

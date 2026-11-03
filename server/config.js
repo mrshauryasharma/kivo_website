@@ -29,13 +29,19 @@ if (!fs.existsSync(CHUNKS_DIR)) {
 
 // Authentication & Session configuration
 // Read exact environment variables: KIVO_ADMIN_USERNAME and KIVO_ADMIN_PASSWORD
-// Also support ADMIN_USERNAME and ADMIN_PASSWORD as fallback if KIVO_ADMIN_* is omitted
+// Expected username: kivoadminshaurya (configurable via KIVO_ADMIN_USERNAME)
+// Secret password: strictly read from KIVO_ADMIN_PASSWORD (no hardcoded fallback)
 export function getAdminCredentials() {
-  const rawUsername = process.env.KIVO_ADMIN_USERNAME || process.env.ADMIN_USERNAME;
+  const envUsername = process.env.KIVO_ADMIN_USERNAME || process.env.ADMIN_USERNAME;
+  const rawUsername =
+    typeof envUsername === 'string' && envUsername.trim().length > 0
+      ? envUsername.trim()
+      : 'kivoadminshaurya';
+
   const rawPassword = process.env.KIVO_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
 
   return {
-    rawUsername: typeof rawUsername === 'string' && rawUsername.length > 0 ? rawUsername : undefined,
+    rawUsername,
     rawPassword: typeof rawPassword === 'string' && rawPassword.length > 0 ? rawPassword : undefined,
   };
 }
@@ -44,18 +50,23 @@ export function getAdminCredentials() {
 export function checkAdminEnvConfig() {
   const { rawUsername, rawPassword } = getAdminCredentials();
 
-  const isUsernameSet = Boolean(rawUsername && rawUsername.trim().length > 0);
+  const isExplicitUsernameSet = Boolean(
+    (process.env.KIVO_ADMIN_USERNAME && process.env.KIVO_ADMIN_USERNAME.trim().length > 0) ||
+    (process.env.ADMIN_USERNAME && process.env.ADMIN_USERNAME.trim().length > 0)
+  );
   const isPasswordSet = Boolean(rawPassword && rawPassword.length > 0);
 
-  const hasUsernameWhitespace = isUsernameSet && (rawUsername !== rawUsername.trim() || /[\r\n]/.test(rawUsername));
+  const rawUserEnv = process.env.KIVO_ADMIN_USERNAME || process.env.ADMIN_USERNAME || '';
+  const hasUsernameWhitespace = isExplicitUsernameSet && (rawUserEnv !== rawUserEnv.trim() || /[\r\n]/.test(rawUserEnv));
   const hasPasswordWhitespace = isPasswordSet && (/[\r\n]/.test(rawPassword) || /^\s+|\s+$/.test(rawPassword));
 
   return {
-    isConfigured: isUsernameSet && isPasswordSet,
-    isUsernameSet,
+    isConfigured: isPasswordSet,
+    isUsernameSet: true,
+    isExplicitUsernameSet,
+    username: rawUsername,
     isPasswordSet,
-    usingKivoPrefix: Boolean(process.env.KIVO_ADMIN_USERNAME && process.env.KIVO_ADMIN_PASSWORD),
-    usernameLength: isUsernameSet ? rawUsername.length : 0,
+    usingKivoPrefix: Boolean(process.env.KIVO_ADMIN_PASSWORD),
     passwordLength: isPasswordSet ? rawPassword.length : 0,
     hasUsernameWhitespace,
     hasPasswordWhitespace,
@@ -68,16 +79,16 @@ export function logSafeAuthDiagnostics() {
   console.log('[KIVO Auth Diagnostic] Environment Credentials Check:');
   console.log(
     `  - KIVO_ADMIN_USERNAME: ${
-      diag.isUsernameSet
-        ? `CONFIGURED (len: ${diag.usernameLength}${diag.hasUsernameWhitespace ? ', notice: contains whitespace/newline' : ''})`
-        : 'MISSING ❌'
+      diag.isExplicitUsernameSet
+        ? `CONFIGURED (using "${diag.username}"${diag.hasUsernameWhitespace ? ', notice: contains whitespace/newline' : ''})`
+        : `ACTIVE (expected: "${diag.username}")`
     }`
   );
   console.log(
     `  - KIVO_ADMIN_PASSWORD: ${
       diag.isPasswordSet
         ? `CONFIGURED (len: ${diag.passwordLength}${diag.hasPasswordWhitespace ? ', notice: contains whitespace/newline' : ''})`
-        : 'MISSING ❌'
+        : 'MISSING ❌ (Configure KIVO_ADMIN_PASSWORD secret in GoDaddy)'
     }`
   );
   console.log(
@@ -86,10 +97,7 @@ export function logSafeAuthDiagnostics() {
 
   if (!diag.isConfigured) {
     console.error(
-      '[KIVO Auth Diagnostic] ⚠️ CRITICAL: Admin credentials are not configured in environment variables!'
-    );
-    console.error(
-      '                       Please set KIVO_ADMIN_USERNAME and KIVO_ADMIN_PASSWORD on your server.'
+      '[KIVO Auth Diagnostic] ⚠️ CRITICAL: The secret KIVO_ADMIN_PASSWORD is not configured in GoDaddy environment variables!'
     );
   }
 }

@@ -48,7 +48,8 @@ app.disable('x-powered-by');
 // Trust reverse proxy (GoDaddy, Cloudflare, Nginx) for accurate IP and HTTPS detection
 app.set('trust proxy', 1);
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = '0.0.0.0';
 const distPath = path.join(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
 
@@ -363,8 +364,8 @@ app.use((req, res) => {
 // -------------------------------------------------------------
 app.use(safeErrorHandler);
 
-app.listen(PORT, () => {
-  console.log(`[KIVO Web Server] Listening on port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[KIVO Web Server] Listening on http://${HOST}:${PORT}`);
   console.log(`[KIVO Web Server] Serving static files from: ${distPath}`);
   console.log(`[KIVO Web Server] Installers storage path: ${UPLOADS_DIR}`);
   logSafeAuthDiagnostics();

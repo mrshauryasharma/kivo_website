@@ -28,8 +28,8 @@ Configure these environment variables in your GoDaddy Node.js Hosting control pa
 | :--- | :--- | :--- | :--- |
 | `PORT` | Auto / Required | GoDaddy assigned | The TCP port the server listens on (automatically injected by GoDaddy). |
 | `NODE_ENV` | Optional | `production` | Set to `production` for secure cookie transmission. |
-| `KIVO_ADMIN_USERNAME` | **Required** | `None` (must be set) | The username required to log into `/kivoadmin` (e.g. `kivoadminshaurya`). |
-| `KIVO_ADMIN_PASSWORD` | **Required** | `None` (must be set) | **Your secret admin password**. Configure securely in hosting environment secrets. |
+| `KIVO_ADMIN_USERNAME` | Optional | `kivoadminshaurya` | The username required to log into `/kivoadmin` (defaults to `kivoadminshaurya`). |
+| `KIVO_ADMIN_PASSWORD` | **Required Secret** | `None` (must be set) | **Your secret admin password**. Configure securely in GoDaddy environment secrets. |
 | `SESSION_SECRET` | Optional / Recommended | Auto fallback | Secret key (32+ characters) used to cryptographically sign session tokens and CSRF cookies. |
 | `UPLOADS_DIR` | Optional / Recommended | `./storage/installers` | **Persistent disk directory** outside the temporary app deployment root (e.g., `/home/<username>/kivo_storage/installers`) so new code redeployments never delete uploaded installers. |
 
