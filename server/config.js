@@ -28,11 +28,74 @@ if (!fs.existsSync(CHUNKS_DIR)) {
 }
 
 // Authentication & Session configuration
-export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'kivoadminshaurya';
+// Read exact environment variables: KIVO_ADMIN_USERNAME and KIVO_ADMIN_PASSWORD
+// Also support ADMIN_USERNAME and ADMIN_PASSWORD as fallback if KIVO_ADMIN_* is omitted
+export function getAdminCredentials() {
+  const rawUsername = process.env.KIVO_ADMIN_USERNAME || process.env.ADMIN_USERNAME;
+  const rawPassword = process.env.KIVO_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
 
-// Secure password configuration from server environment
-// If not explicitly provided in env, defaults to a secure development password
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'KivoAdmin#2026!SecureKey';
+  return {
+    rawUsername: typeof rawUsername === 'string' && rawUsername.length > 0 ? rawUsername : undefined,
+    rawPassword: typeof rawPassword === 'string' && rawPassword.length > 0 ? rawPassword : undefined,
+  };
+}
+
+// Check admin credentials configuration and detect any whitespace / newlines safely
+export function checkAdminEnvConfig() {
+  const { rawUsername, rawPassword } = getAdminCredentials();
+
+  const isUsernameSet = Boolean(rawUsername && rawUsername.trim().length > 0);
+  const isPasswordSet = Boolean(rawPassword && rawPassword.length > 0);
+
+  const hasUsernameWhitespace = isUsernameSet && (rawUsername !== rawUsername.trim() || /[\r\n]/.test(rawUsername));
+  const hasPasswordWhitespace = isPasswordSet && (/[\r\n]/.test(rawPassword) || /^\s+|\s+$/.test(rawPassword));
+
+  return {
+    isConfigured: isUsernameSet && isPasswordSet,
+    isUsernameSet,
+    isPasswordSet,
+    usingKivoPrefix: Boolean(process.env.KIVO_ADMIN_USERNAME && process.env.KIVO_ADMIN_PASSWORD),
+    usernameLength: isUsernameSet ? rawUsername.length : 0,
+    passwordLength: isPasswordSet ? rawPassword.length : 0,
+    hasUsernameWhitespace,
+    hasPasswordWhitespace,
+  };
+}
+
+// Log safe diagnostics on the server without ever exposing secret values
+export function logSafeAuthDiagnostics() {
+  const diag = checkAdminEnvConfig();
+  console.log('[KIVO Auth Diagnostic] Environment Credentials Check:');
+  console.log(
+    `  - KIVO_ADMIN_USERNAME: ${
+      diag.isUsernameSet
+        ? `CONFIGURED (len: ${diag.usernameLength}${diag.hasUsernameWhitespace ? ', notice: contains whitespace/newline' : ''})`
+        : 'MISSING ❌'
+    }`
+  );
+  console.log(
+    `  - KIVO_ADMIN_PASSWORD: ${
+      diag.isPasswordSet
+        ? `CONFIGURED (len: ${diag.passwordLength}${diag.hasPasswordWhitespace ? ', notice: contains whitespace/newline' : ''})`
+        : 'MISSING ❌'
+    }`
+  );
+  console.log(
+    `  - SESSION_SECRET: ${process.env.SESSION_SECRET ? 'CONFIGURED (custom secret)' : 'CONFIGURED (default session secret)'}`
+  );
+
+  if (!diag.isConfigured) {
+    console.error(
+      '[KIVO Auth Diagnostic] ⚠️ CRITICAL: Admin credentials are not configured in environment variables!'
+    );
+    console.error(
+      '                       Please set KIVO_ADMIN_USERNAME and KIVO_ADMIN_PASSWORD on your server.'
+    );
+  }
+}
+
+// Legacy getter for username (without hardcoded fallback)
+export const ADMIN_USERNAME = () => getAdminCredentials().rawUsername?.trim() || '';
 
 // Session signing secret
 export const SESSION_SECRET = process.env.SESSION_SECRET || 'kivo-browser-secure-session-secret-key-32chars';

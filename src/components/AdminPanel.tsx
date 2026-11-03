@@ -56,7 +56,7 @@ function pathBasename(p: string): string {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [username, setUsername] = useState('kivoadminshaurya');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -895,13 +895,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.05]">
-              <span className="font-mono text-kivo-cyan font-semibold block mb-1">ADMIN_USERNAME</span>
-              <p className="text-slate-400">Username for logging into this panel. Default: <code className="text-slate-200">kivoadminshaurya</code></p>
+              <span className="font-mono text-kivo-cyan font-semibold block mb-1">KIVO_ADMIN_USERNAME</span>
+              <p className="text-slate-400">Username for logging into this panel. Configured in your host environment.</p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.05]">
-              <span className="font-mono text-kivo-cyan font-semibold block mb-1">ADMIN_PASSWORD</span>
-              <p className="text-slate-400">Password for logging into this panel. Store securely in your host environment.</p>
+              <span className="font-mono text-kivo-cyan font-semibold block mb-1">KIVO_ADMIN_PASSWORD</span>
+              <p className="text-slate-400">Password for logging into this panel. Store securely in your host environment secrets.</p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.05]">

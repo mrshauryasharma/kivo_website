@@ -8,7 +8,7 @@ import {
   UPLOADS_DIR,
   MAX_FILE_SIZE,
   PLATFORM_RULES,
-  ADMIN_USERNAME,
+  logSafeAuthDiagnostics,
 } from './server/config.js';
 import {
   authenticateAdmin,
@@ -32,6 +32,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
@@ -128,14 +129,19 @@ app.post('/api/auth/login', (req, res) => {
   const result = authenticateAdmin(username, password, clientIp);
 
   if (!result.success) {
-    return res.status(result.status || 401).json({ error: result.error });
+    return res.status(result.status || 401).json({
+      error: result.error,
+      code: result.code,
+    });
   }
 
   // Set HttpOnly, SameSite cookie for session
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Auto-detect HTTPS even behind reverse proxies
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+
   res.cookie('kivo_admin_session', result.sessionCookie, {
     httpOnly: true,
-    secure: isProduction,
+    secure: isHttps,
     sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000, // 8 hours
     path: '/',
@@ -144,7 +150,7 @@ app.post('/api/auth/login', (req, res) => {
   // Set readable CSRF cookie so client can include in X-CSRF-Token header
   res.cookie('kivo_csrf_token', result.csrfToken, {
     httpOnly: false,
-    secure: isProduction,
+    secure: isHttps,
     sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000,
     path: '/',
@@ -152,7 +158,7 @@ app.post('/api/auth/login', (req, res) => {
 
   res.status(200).json({
     success: true,
-    user: { username: ADMIN_USERNAME },
+    user: { username: result.username },
     csrfToken: result.csrfToken,
     expiresAt: result.expiresAt,
   });
@@ -304,4 +310,5 @@ app.listen(PORT, () => {
   console.log(`[KIVO Web Server] Listening on port ${PORT}`);
   console.log(`[KIVO Web Server] Serving static files from: ${distPath}`);
   console.log(`[KIVO Web Server] Installers storage path: ${UPLOADS_DIR}`);
+  logSafeAuthDiagnostics();
 });

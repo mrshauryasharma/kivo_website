@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { ADMIN_USERNAME, ADMIN_PASSWORD, SESSION_SECRET } from './config.js';
+import { getAdminCredentials, SESSION_SECRET } from './config.js';
 
 // In-memory session store: Map<sessionId, { username: string, csrfToken: string, expiresAt: number }>
 const activeSessions = new Map();
@@ -82,18 +82,77 @@ export function authenticateAdmin(username, password, ip) {
     return { success: false, error: rateLimit.message, status: 429 };
   }
 
-  const usernameValid = timingSafeCompare(username, ADMIN_USERNAME);
-  const passwordValid = timingSafeCompare(password, ADMIN_PASSWORD);
+  // Retrieve current environment credentials
+  const { rawUsername, rawPassword } = getAdminCredentials();
+
+  // Requirement 6: Clear server-side error if either environment variable is missing
+  if (!rawUsername || !rawPassword) {
+    console.error(
+      '[KIVO Auth Diagnostic] ❌ Login rejected: KIVO_ADMIN_USERNAME or KIVO_ADMIN_PASSWORD is missing in server environment.'
+    );
+    return {
+      success: false,
+      error:
+        'Admin authentication is not configured on the server. Please configure KIVO_ADMIN_USERNAME and KIVO_ADMIN_PASSWORD in server environment variables.',
+      code: 'AUTH_ENV_MISSING',
+      status: 500,
+    };
+  }
+
+  // Safe diagnostic detection of whitespace or accidental newlines in environment values
+  const hasUsernameWhitespace = rawUsername !== rawUsername.trim() || /[\r\n]/.test(rawUsername);
+  const hasPasswordWhitespace = /[\r\n]/.test(rawPassword) || /^\s+|\s+$/.test(rawPassword);
+
+  if (hasUsernameWhitespace) {
+    console.warn('[KIVO Auth Diagnostic] Notice: KIVO_ADMIN_USERNAME environment variable contains whitespace or newlines.');
+  }
+  if (hasPasswordWhitespace) {
+    console.warn('[KIVO Auth Diagnostic] Notice: KIVO_ADMIN_PASSWORD environment variable contains whitespace or newlines.');
+  }
+
+  // 1. Verify username (accepts exact match or trimmed match)
+  const usernameValid =
+    timingSafeCompare(username, rawUsername) ||
+    timingSafeCompare(username?.trim(), rawUsername.trim());
+
+  // 2. Verify password
+  // Requirement 5: Check for whitespace or accidental newline issues without silently changing the actual password
+  let passwordValid = timingSafeCompare(password, rawPassword);
+
+  if (!passwordValid) {
+    // Check if the environment variable contained an accidental trailing newline (CR/LF) or surrounding whitespace
+    const strippedEnvNewline = rawPassword.replace(/[\r\n]+$/, '');
+    const trimmedEnv = rawPassword.trim();
+    const trimmedInput = typeof password === 'string' ? password.trim() : '';
+
+    if (timingSafeCompare(password, strippedEnvNewline)) {
+      passwordValid = true;
+      console.log('[KIVO Auth Diagnostic] Notice: Password matched after stripping accidental newline from environment variable.');
+    } else if (timingSafeCompare(password, trimmedEnv)) {
+      passwordValid = true;
+      console.log('[KIVO Auth Diagnostic] Notice: Password matched after trimming whitespace from environment variable.');
+    } else if (timingSafeCompare(trimmedInput, rawPassword)) {
+      passwordValid = true;
+      console.log('[KIVO Auth Diagnostic] Notice: Password matched after trimming whitespace from user input.');
+    } else if (timingSafeCompare(trimmedInput, trimmedEnv)) {
+      passwordValid = true;
+      console.log('[KIVO Auth Diagnostic] Notice: Password matched after trimming whitespace from both input and environment variable.');
+    }
+  }
 
   if (!usernameValid || !passwordValid) {
     recordFailedAttempt(ip);
     const updated = checkRateLimit(ip);
     const remainingText = updated.remaining > 0 ? ` (${updated.remaining} attempts remaining)` : '';
+    console.warn(`[KIVO Auth Diagnostic] ❌ Failed login attempt from IP ${ip}. Invalid credentials.${remainingText}`);
     return { success: false, error: `Invalid admin credentials.${remainingText}`, status: 401 };
   }
 
   // Credentials valid: reset rate limiter
   resetLoginAttempts(ip);
+  console.log(`[KIVO Auth Diagnostic] ✅ Successful admin authentication for user from IP ${ip}`);
+
+  const resolvedUsername = rawUsername.trim();
 
   // Generate session & CSRF tokens
   const sessionId = crypto.randomBytes(32).toString('hex');
@@ -102,13 +161,14 @@ export function authenticateAdmin(username, password, ip) {
   const expiresAt = Date.now() + SESSION_LIFETIME_MS;
 
   activeSessions.set(sessionId, {
-    username: ADMIN_USERNAME,
+    username: resolvedUsername,
     csrfToken,
     expiresAt,
   });
 
   return {
     success: true,
+    username: resolvedUsername,
     sessionCookie: `${sessionId}.${signature}`,
     csrfToken,
     expiresAt,
