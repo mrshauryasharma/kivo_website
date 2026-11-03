@@ -12,6 +12,8 @@ build/
 *.dmg
 *.bin
 cloudflared.exe
+storage/
+test_storage/
 
 # Environment & Secrets
 .env

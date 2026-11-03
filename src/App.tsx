@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { CustomCursor } from './components/CustomCursor';
 import { Navbar } from './components/Navbar';
@@ -11,8 +11,26 @@ import { DownloadSection } from './components/DownloadSection';
 import { Footer } from './components/Footer';
 import { LegalModal } from './components/LegalModal';
 import { EarlyAccessModal } from './components/EarlyAccessModal';
+import { AdminPanel } from './components/AdminPanel';
 
 export function App() {
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+
+  // Listen for browser navigation (back/forward) and custom navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms'>('privacy');
 
@@ -29,6 +47,19 @@ export function App() {
     setEarlyAccessOpen(true);
   };
 
+  // If on admin route, render dedicated admin portal
+  if (currentPath.startsWith('/kivoadmin')) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans">
+          <CustomCursor />
+          <AdminPanel onNavigateHome={() => navigateTo('/')} />
+        </div>
+      </MotionConfig>
+    );
+  }
+
+  // Otherwise render the full, preserved KIVO Browser website
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white flex flex-col font-sans">

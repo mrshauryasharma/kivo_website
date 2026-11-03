@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Download,
   Info,
   Clock,
   Bell,
+  Cpu,
 } from 'lucide-react';
 import { DOWNLOAD_CONFIG } from '../config/downloadConfig';
 import type { PlatformDownloadConfig } from '../config/downloadConfig';
@@ -15,16 +16,56 @@ interface DownloadSectionProps {
   onOpenEarlyAccess: (platform: 'windows' | 'macos') => void;
 }
 
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes === 0) return '';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `~${Math.round(bytes / Math.pow(k, i))} ${sizes[i]}`;
+}
+
 export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAccess }) => {
   const { windows, macos, latestVersion, releaseDate } = DOWNLOAD_CONFIG;
 
-  const handleDownloadClick = (e: React.MouseEvent, config: PlatformDownloadConfig) => {
-    if (!config.downloadUrl) {
+  // Live installer availability from backend
+  const [liveStatus, setLiveStatus] = useState<Record<string, any>>({});
+  const [selectedMacArch, setSelectedMacArch] = useState<'arm64' | 'intel'>('arm64');
+
+  useEffect(() => {
+    fetch('/api/downloads/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setLiveStatus(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Compute live properties
+  const winLive = liveStatus['windows'];
+  const winAvailable = Boolean(winLive?.available);
+  const winDownloadUrl = winAvailable ? winLive.downloadUrl : windows.downloadUrl;
+  const winVersion = winAvailable && winLive.version ? winLive.version : windows.version;
+  const winSize = winAvailable && winLive.size ? formatBytes(winLive.size) : windows.fileSize;
+
+  const macArmLive = liveStatus['mac-arm64'];
+  const macIntelLive = liveStatus['mac-intel'];
+  const macArmAvailable = Boolean(macArmLive?.available);
+  const macIntelAvailable = Boolean(macIntelLive?.available);
+
+  // Active selected mac target
+  const activeMacLive = selectedMacArch === 'arm64' ? macArmLive : macIntelLive;
+  const macAvailable = Boolean(activeMacLive?.available);
+  const macDownloadUrl = macAvailable ? activeMacLive.downloadUrl : macos.downloadUrl;
+  const macVersion = macAvailable && activeMacLive.version ? activeMacLive.version : macos.version;
+  const macSize = macAvailable && activeMacLive.size ? formatBytes(activeMacLive.size) : macos.fileSize;
+
+  const handleDownloadClick = (e: React.MouseEvent, config: PlatformDownloadConfig, activeUrl?: string | null) => {
+    const targetUrl = activeUrl !== undefined ? activeUrl : config.downloadUrl;
+    if (!targetUrl) {
       e.preventDefault();
       onOpenEarlyAccess(config.platform);
     } else {
-      // Real verified download URL exists: let native browser download proceed
-      window.location.href = config.downloadUrl;
+      window.location.href = targetUrl;
     }
   };
 
@@ -85,7 +126,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                 <div className="w-14 h-14 rounded-2xl bg-kivo-blue/15 border border-kivo-blue/30 flex items-center justify-center text-kivo-cyan shadow-sm">
                   <WindowsIcon className="w-7 h-7" />
                 </div>
-                {windows.downloadUrl ? (
+                {winAvailable ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     Available Now
@@ -121,20 +162,26 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                   <span className="font-mono text-kivo-cyan font-medium">{windows.installerFormat}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Target Version:</span>
-                  <span className="font-mono text-slate-300">{windows.version}</span>
+                  <span className="text-slate-400">Release Version:</span>
+                  <span className="font-mono text-slate-300">{winVersion}</span>
                 </div>
+                {winSize && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Installer Size:</span>
+                    <span className="font-mono text-slate-300">{winSize}</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Download CTA Button */}
             <div>
-              {windows.downloadUrl ? (
+              {winAvailable ? (
                 <MagneticButton strength={0.15} className="w-full">
                   <a
-                    href={windows.downloadUrl}
+                    href={winDownloadUrl!}
                     download
-                    onClick={(e) => handleDownloadClick(e, windows)}
+                    onClick={(e) => handleDownloadClick(e, windows, winDownloadUrl)}
                     className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-kivo-blue/20 block text-center"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
@@ -179,7 +226,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                 <div className="w-14 h-14 rounded-2xl bg-kivo-purple/15 border border-kivo-purple/30 flex items-center justify-center text-slate-200 shadow-sm">
                   <AppleIcon className="w-7 h-7" />
                 </div>
-                {macos.downloadUrl ? (
+                {macAvailable || macArmAvailable || macIntelAvailable ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     Available Now
@@ -196,9 +243,39 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
               <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 font-display">
                 {macos.name}
               </h3>
-              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+              <p className="text-sm text-slate-400 mb-4 leading-relaxed">
                 Native build for macOS, supporting Apple Silicon and Intel machines.
               </p>
+
+              {/* Architecture Selector Chips */}
+              <div className="mb-6 flex items-center gap-2 p-1.5 rounded-xl bg-black/40 border border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMacArch('arm64')}
+                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                    selectedMacArch === 'arm64'
+                      ? 'bg-kivo-purple/20 text-white border border-kivo-purple/40 shadow-sm font-semibold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Cpu className="w-3.5 h-3.5 text-kivo-purple" />
+                  <span>Apple Silicon (M1/M2/M3/M4)</span>
+                  {macArmAvailable && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedMacArch('intel')}
+                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                    selectedMacArch === 'intel'
+                      ? 'bg-white/10 text-white border border-white/20 shadow-sm font-semibold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>Intel (x64)</span>
+                  {macIntelAvailable && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                </button>
+              </div>
 
               {/* Technical Specifications List */}
               <div className="space-y-3 mb-8 bg-black/30 p-4 rounded-xl border border-white/[0.05]">
@@ -208,33 +285,41 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">Architecture:</span>
-                  <span className="font-semibold text-slate-200">{macos.architecture}</span>
+                  <span className="font-semibold text-slate-200">
+                    {selectedMacArch === 'arm64' ? 'Apple Silicon (ARM64)' : 'Intel 64-bit (x64)'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">Package Format:</span>
                   <span className="font-mono text-kivo-purple font-medium">{macos.installerFormat}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Target Version:</span>
-                  <span className="font-mono text-slate-300">{macos.version}</span>
+                  <span className="text-slate-400">Release Version:</span>
+                  <span className="font-mono text-slate-300">{macVersion}</span>
                 </div>
+                {macSize && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Installer Size:</span>
+                    <span className="font-mono text-slate-300">{macSize}</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Download CTA Button */}
             <div>
-              {macos.downloadUrl ? (
+              {macAvailable ? (
                 <MagneticButton strength={0.15} className="w-full">
                   <a
-                    href={macos.downloadUrl}
+                    href={macDownloadUrl!}
                     download
-                    onClick={(e) => handleDownloadClick(e, macos)}
+                    onClick={(e) => handleDownloadClick(e, macos, macDownloadUrl)}
                     className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-kivo-purple/20 block text-center"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
                     <div className="relative flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-kivo-blue to-kivo-purple text-base font-bold text-white">
                       <Download className="w-5 h-5 text-white" />
-                      <span>Download for macOS (.dmg)</span>
+                      <span>Download for macOS {selectedMacArch === 'arm64' ? '(Apple Silicon)' : '(Intel)'}</span>
                     </div>
                   </a>
                 </MagneticButton>
@@ -247,7 +332,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                       className="w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.12] hover:border-kivo-purple/30 text-base font-semibold transition-all group/btn"
                     >
                       <Bell className="w-5 h-5 text-kivo-purple group-hover/btn:scale-110 transition-transform" />
-                      <span>Get macOS Release Notification</span>
+                      <span>Get macOS {selectedMacArch === 'arm64' ? 'ARM' : 'Intel'} Notification</span>
                     </button>
                   </MagneticButton>
                   <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
