@@ -8,6 +8,9 @@ const __dirname = path.dirname(__filename);
 // Root directory of the application
 export const APP_ROOT = path.resolve(__dirname, '..');
 
+// Production Base URL (configured via environment variable, no hardcoded temporary preview URL)
+export const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://kivobrowser.com').replace(/\/+$/, '');
+
 // Helper to determine best persistent storage root
 function resolvePersistentBaseDir() {
   if (process.env.PERSISTENT_STORAGE_DIR) {
@@ -77,13 +80,11 @@ for (const dir of [UPLOADS_DIR, CHUNKS_DIR, DATA_DIR, ATTACHMENTS_DIR]) {
 // Auto-migrate legacy files to persistent directory if needed
 function runStorageMigration() {
   try {
-    // 1. Check legacy metadata file
     if (fs.existsSync(LEGACY_METADATA_FILE) && !fs.existsSync(METADATA_FILE)) {
       console.log(`[KIVO Storage] Migrating legacy metadata from ${LEGACY_METADATA_FILE} to ${METADATA_FILE}`);
       fs.copyFileSync(LEGACY_METADATA_FILE, METADATA_FILE);
     }
 
-    // 2. Check legacy installer files
     if (fs.existsSync(LEGACY_UPLOADS_DIR) && LEGACY_UPLOADS_DIR !== UPLOADS_DIR) {
       const files = fs.readdirSync(LEGACY_UPLOADS_DIR);
       for (const file of files) {
@@ -156,6 +157,7 @@ export function getEmailConfig() {
     apiKey: apiKey.trim(),
     fromEmail: fromEmail.trim(),
     supportEmail: supportEmail.trim(),
+    appBaseUrl: APP_BASE_URL,
   };
 }
 
@@ -185,6 +187,7 @@ export function logSafeAuthDiagnostics() {
         : 'NOT CONFIGURED ⚠️ (Emails will be queued/logged locally)'
     }`
   );
+  console.log(`  - APP_BASE_URL: ${APP_BASE_URL}`);
   console.log(`  - PERSISTENT STORAGE: ${UPLOADS_DIR}`);
   console.log(`  - DATA STORAGE: ${DATA_DIR}`);
 
@@ -198,8 +201,54 @@ export function logSafeAuthDiagnostics() {
 export const ADMIN_USERNAME = () => getAdminCredentials().rawUsername?.trim() || '';
 export const SESSION_SECRET = process.env.SESSION_SECRET || 'kivo-browser-secure-session-secret-key-32chars';
 
-export const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2 GB
-export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
+// Installer max file size: 2 GB
+export const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
+
+// Support ticket attachment maximum size: 50 MB per file (enforced server-side, not advertised in customer UI)
+export const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 52,428,800 bytes
+
+// Allowed attachment file extensions
+export const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  // Images
+  '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg',
+  // Documents & logs
+  '.pdf', '.txt', '.log', '.doc', '.docx', '.rtf', '.csv', '.json', '.md',
+  // Archives
+  '.zip', '.tar', '.gz', '.7z',
+  // Media & Crash dumps
+  '.mp4', '.webm', '.mov', '.dmp', '.crash'
+];
+
+// Helper to validate magic byte signatures for common critical file types
+export function validateFileMagicBytes(buffer, ext) {
+  if (!buffer || buffer.length < 4) return true; // allow small text files
+  const lowerExt = ext.toLowerCase();
+
+  // PNG: 89 50 4E 47
+  if (lowerExt === '.png') {
+    return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+  }
+  // JPEG: FF D8 FF
+  if (lowerExt === '.jpg' || lowerExt === '.jpeg') {
+    return buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+  }
+  // PDF: %PDF (25 50 44 46)
+  if (lowerExt === '.pdf') {
+    return buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
+  }
+  // GIF: GIF8 (47 49 46 38)
+  if (lowerExt === '.gif') {
+    return buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38;
+  }
+  // ZIP (also docx): PK.. (50 4B 03 04 or 50 4B 05 06)
+  if (lowerExt === '.zip' || lowerExt === '.docx') {
+    return buffer[0] === 0x50 && buffer[1] === 0x4B;
+  }
+
+  // Text, logs, and others pass basic extension check
+  return true;
+}
 
 export const PLATFORM_RULES = {
   windows: {

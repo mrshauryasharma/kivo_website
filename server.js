@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import {
   UPLOADS_DIR,
   DATA_DIR,
+  ATTACHMENTS_DIR,
   MAX_FILE_SIZE,
   PLATFORM_RULES,
   logSafeAuthDiagnostics,
@@ -37,13 +38,19 @@ import {
   handleGetHistory,
 } from './server/cms.js';
 import {
+  handleFileUpload,
   handleTicketSubmission,
+  handleRequestOtp,
+  handleVerifyOtp,
+  handleGetCustomerTicket,
+  handleCustomerReply,
   handleListTickets,
   handleGetTicketDetails,
-  handleAddReply,
-  handleAddInternalNote,
-  handleUpdateTicketStatus,
-  handleDownloadAttachment,
+  handleAdminReply,
+  handleAdminAddNote,
+  handleAdminUpdateStatus,
+  handleRetryEmail,
+  handleStreamAttachment,
 } from './server/tickets.js';
 import {
   securityHeaders,
@@ -60,10 +67,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Disable x-powered-by header (OWASP best practice)
 app.disable('x-powered-by');
-
-// Trust reverse proxy (GoDaddy, Cloudflare, Nginx) for accurate IP and HTTPS detection
 app.set('trust proxy', 1);
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -71,7 +75,6 @@ const HOST = '0.0.0.0';
 const distPath = path.join(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
 
-// Validate dist build exists
 if (!fs.existsSync(distPath) || !fs.existsSync(indexPath)) {
   console.warn(
     'WARNING: dist folder or index.html not found! Make sure to run "npm run build" before starting the server.'
@@ -79,27 +82,29 @@ if (!fs.existsSync(distPath) || !fs.existsSync(indexPath)) {
 }
 
 // -------------------------------------------------------------
-// Core Security Middlewares (Executed before any route processing)
+// Core Security Middlewares
 // -------------------------------------------------------------
-
-// 1. Enforce HTTPS, HSTS, CSP, nosniff, frame-ancestors, Permissions-Policy
 app.use(securityHeaders);
-
-// 2. Strict CORS protection for API routes
 app.use(corsProtection);
-
-// 3. Block path traversal, hidden files (.env, .git), source maps (.map), and private dirs
 app.use(blockRestrictedAccess);
 
-// 4. Rate limiters
+// Rate limiters
 app.use('/api/', apiRateLimiter('public'));
 app.use('/api/admin/', apiRateLimiter('admin'));
 
-// 5. Body and cookie parsing (allows up to 15MB for ticket attachments)
+// Body and cookie parsing
 app.use(cookieParser());
-app.use(express.json({ limit: '15mb' }));
 
-// Raw binary body parser for chunk uploads (accepts application/octet-stream up to 25MB)
+// Direct binary payload parser for attachment uploads (up to 55MB)
+app.use(
+  ['/api/support/upload', '/api/admin/upload-attachment'],
+  express.raw({ type: '*/*', limit: '55mb' })
+);
+
+// Standard JSON parser
+app.use(express.json({ limit: '60mb' }));
+
+// Raw binary body parser for chunked installer uploads (up to 25MB)
 app.use(
   '/api/admin/upload/chunk',
   express.raw({ type: 'application/octet-stream', limit: '25mb' })
@@ -108,8 +113,6 @@ app.use(
 // -------------------------------------------------------------
 // Public Endpoints (Health, Downloads, CMS, Support)
 // -------------------------------------------------------------
-
-// Sanitized Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
@@ -117,8 +120,19 @@ app.get('/health', (req, res) => {
 // Public published CMS content
 app.get('/api/content', handleGetPublishedContent);
 
+// Support Attachment Upload (Accepts files up to 50 MB)
+app.post('/api/support/upload', handleFileUpload);
+app.post('/api/admin/upload-attachment', requireAdminAuth, handleFileUpload);
+
 // Public support ticket submission
 app.post('/api/support/ticket', handleTicketSubmission);
+
+// Customer Ticket Tracking & Ownership Verification (IDOR Protected)
+app.post('/api/support/track/request-otp', handleRequestOtp);
+app.post('/api/support/track/verify', handleVerifyOtp);
+app.get('/api/support/ticket/:id', handleGetCustomerTicket);
+app.post('/api/support/ticket/:id/reply', handleCustomerReply);
+app.get('/api/support/ticket/:id/attachment/:filename', handleStreamAttachment);
 
 // Public status of installers (used dynamically by website download cards)
 app.get('/api/downloads/status', (req, res) => {
@@ -173,8 +187,6 @@ app.get('/api/download/:platform', (req, res) => {
 // -------------------------------------------------------------
 // Authentication Endpoints
 // -------------------------------------------------------------
-
-// Admin login endpoint
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body || {};
   const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -192,18 +204,16 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  // Set HttpOnly, SameSite cookie for session
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
 
   res.cookie('kivo_admin_session', result.sessionCookie, {
     httpOnly: true,
     secure: isHttps,
     sameSite: 'lax',
-    maxAge: 8 * 60 * 60 * 1000, // 8 hours
+    maxAge: 8 * 60 * 60 * 1000,
     path: '/',
   });
 
-  // Set readable CSRF cookie so client can include in X-CSRF-Token header
   res.cookie('kivo_csrf_token', result.csrfToken, {
     httpOnly: false,
     secure: isHttps,
@@ -220,7 +230,6 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
-// Admin logout endpoint
 app.post('/api/auth/logout', (req, res) => {
   const sessionCookie = req.cookies?.kivo_admin_session;
   invalidateSession(sessionCookie);
@@ -230,7 +239,6 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ success: true, message: 'Logged out successfully.' });
 });
 
-// Check current session
 app.get('/api/auth/me', (req, res) => {
   const sessionCookie = req.cookies?.kivo_admin_session;
   const session = getSession(sessionCookie);
@@ -250,8 +258,6 @@ app.get('/api/auth/me', (req, res) => {
 // -------------------------------------------------------------
 // Protected Admin API Endpoints: Installers & Binary Storage
 // -------------------------------------------------------------
-
-// List current installers and disk storage information
 app.get('/api/admin/installers', requireAdminAuth, (req, res) => {
   try {
     const meta = getMetadata();
@@ -268,7 +274,6 @@ app.get('/api/admin/installers', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 1: Initialize chunked upload
 app.post('/api/admin/upload/init', requireAdminAuth, (req, res) => {
   try {
     const sanitizedParams = validateUploadInitBody(req.body, PLATFORM_RULES);
@@ -279,7 +284,6 @@ app.post('/api/admin/upload/init', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 2: Receive single chunk
 app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
   try {
     const uploadId = validateUploadId(
@@ -302,7 +306,6 @@ app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 3: Complete chunked upload and assemble file atomically
 app.post('/api/admin/upload/complete', requireAdminAuth, async (req, res) => {
   try {
     const uploadId = validateUploadId(req.body?.uploadId);
@@ -317,7 +320,6 @@ app.post('/api/admin/upload/complete', requireAdminAuth, async (req, res) => {
   }
 });
 
-// Cancel active upload
 app.post('/api/admin/upload/cancel', requireAdminAuth, (req, res) => {
   try {
     const uploadId = validateUploadId(req.body?.uploadId);
@@ -328,7 +330,6 @@ app.post('/api/admin/upload/cancel', requireAdminAuth, (req, res) => {
   }
 });
 
-// Delete installer for platform
 app.delete('/api/admin/installers/:platform', requireAdminAuth, (req, res) => {
   try {
     const { platform } = req.params;
@@ -352,20 +353,19 @@ app.post('/api/admin/cms/revert', requireAdminAuth, handleRevertCms);
 app.get('/api/admin/cms/history', requireAdminAuth, handleGetHistory);
 
 // -------------------------------------------------------------
-// Protected Admin API Endpoints: Support Tickets
+// Protected Admin API Endpoints: Support Tickets Dashboard
 // -------------------------------------------------------------
 app.get('/api/admin/tickets', requireAdminAuth, handleListTickets);
 app.get('/api/admin/tickets/:id', requireAdminAuth, handleGetTicketDetails);
-app.post('/api/admin/tickets/:id/reply', requireAdminAuth, handleAddReply);
-app.post('/api/admin/tickets/:id/note', requireAdminAuth, handleAddInternalNote);
-app.patch('/api/admin/tickets/:id/status', requireAdminAuth, handleUpdateTicketStatus);
-app.get('/api/admin/tickets/:id/attachment', requireAdminAuth, handleDownloadAttachment);
+app.post('/api/admin/tickets/:id/reply', requireAdminAuth, handleAdminReply);
+app.post('/api/admin/tickets/:id/note', requireAdminAuth, handleAdminAddNote);
+app.patch('/api/admin/tickets/:id/status', requireAdminAuth, handleAdminUpdateStatus);
+app.post('/api/admin/tickets/:id/retry-email', requireAdminAuth, handleRetryEmail);
+app.get('/api/admin/tickets/:id/attachment/:filename', requireAdminAuth, handleStreamAttachment);
 
 // -------------------------------------------------------------
 // Static Asset Serving & SPA Fallback
 // -------------------------------------------------------------
-
-// Serve static assets without directory listing and with immutable caching for hashed files
 app.use(
   express.static(distPath, {
     dotfiles: 'ignore',
@@ -382,7 +382,6 @@ app.use(
   })
 );
 
-// SPA fallback: only handle GET/HEAD requests for client-side routing (e.g. /, /kivoadmin)
 app.use((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(404).json({ error: 'Endpoint not found.' });
@@ -399,9 +398,6 @@ app.use((req, res) => {
   }
 });
 
-// -------------------------------------------------------------
-// Safe Global Error Handler
-// -------------------------------------------------------------
 app.use(safeErrorHandler);
 
 app.listen(PORT, HOST, () => {
@@ -409,5 +405,6 @@ app.listen(PORT, HOST, () => {
   console.log(`[KIVO Web Server] Serving static files from: ${distPath}`);
   console.log(`[KIVO Web Server] Installers storage path: ${UPLOADS_DIR}`);
   console.log(`[KIVO Web Server] Database data path: ${DATA_DIR}`);
+  console.log(`[KIVO Web Server] Attachments storage path: ${ATTACHMENTS_DIR}`);
   logSafeAuthDiagnostics();
 });

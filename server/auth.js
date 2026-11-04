@@ -218,6 +218,7 @@ export function requireAdminAuth(req, res, next) {
 
   // Attach session to request
   req.adminSession = session;
+  req.adminUser = session;
 
   // CSRF validation for mutating methods
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {

@@ -45,10 +45,8 @@ function writeJsonAtomically(filePath, data) {
   const backupPath = `${filePath}.bak`;
   const jsonStr = JSON.stringify(data, null, 2);
 
-  // Write to temporary file
   fs.writeFileSync(tempPath, jsonStr, 'utf8');
 
-  // If existing file is valid, create a backup
   if (fs.existsSync(filePath)) {
     try {
       fs.copyFileSync(filePath, backupPath);
@@ -57,11 +55,9 @@ function writeJsonAtomically(filePath, data) {
     }
   }
 
-  // Atomic rename
   try {
     fs.renameSync(tempPath, filePath);
   } catch {
-    // Fallback for Windows file locks
     fs.copyFileSync(tempPath, filePath);
     try {
       fs.unlinkSync(tempPath);
@@ -72,7 +68,7 @@ function writeJsonAtomically(filePath, data) {
 }
 
 // -------------------------------------------------------------
-// Default Initial CMS Schema (Pre-populated with rich KIVO website copy)
+// Default Initial CMS Schema
 // -------------------------------------------------------------
 export const DEFAULT_CMS_CONTENT = {
   hero: {
@@ -294,7 +290,7 @@ export const DEFAULT_CMS_CONTENT = {
   },
   announcement: {
     isEnabled: false,
-    type: 'info', // 'info' | 'warning' | 'alert' | 'maintenance'
+    type: 'info',
     message: 'Welcome to KIVO Browser v1.0! Experience lightning-fast browsing.',
     actionText: 'Download Now',
     actionLink: '#download',
@@ -360,7 +356,7 @@ export function publishCms(author = 'admin', note = 'Published changes via KIVO 
   };
 
   data.published = newPublished;
-  data.history = [historyEntry, ...(data.history || [])].slice(0, 30); // Keep last 30 revisions
+  data.history = [historyEntry, ...(data.history || [])].slice(0, 30);
 
   writeJsonAtomically(CMS_FILE, data);
   return {
@@ -409,16 +405,41 @@ export function getCmsHistory() {
 }
 
 // -------------------------------------------------------------
-// Support Tickets Operations
+// Support Tickets Operations (Persistent Relational-Like Store)
 // -------------------------------------------------------------
 export function getTicketsStore() {
   const store = readJsonSafely(TICKETS_FILE, null);
   if (!store || !Array.isArray(store.tickets)) {
-    const initial = { tickets: [] };
+    const initial = {
+      tickets: [],
+      verificationTokens: [],
+    };
     writeJsonAtomically(TICKETS_FILE, initial);
     return initial;
   }
+  if (!Array.isArray(store.verificationTokens)) {
+    store.verificationTokens = [];
+  }
   return store;
+}
+
+// Generates an unpredictable, permanent Ticket ID: KIVO-2026-XXXXXX
+function generateUniqueTicketId(store) {
+  const year = new Date().getFullYear();
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removed ambiguous characters (0, O, 1, I)
+  let id = '';
+  let exists = true;
+
+  while (exists) {
+    let randCode = '';
+    const bytes = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) {
+      randCode += chars[bytes[i] % chars.length];
+    }
+    id = `KIVO-${year}-${randCode}`;
+    exists = store.tickets.some((t) => t.id === id);
+  }
+  return id;
 }
 
 export function createSupportTicket({
@@ -428,44 +449,56 @@ export function createSupportTicket({
   category,
   subject,
   description,
-  attachment = null,
+  attachments = [],
 }) {
   const store = getTicketsStore();
-  const randCode = crypto.randomBytes(3).toString('hex').toUpperCase();
-  const ticketId = `KIVO-TKT-${randCode}`;
+  const ticketId = generateUniqueTicketId(store);
+  const now = new Date().toISOString();
+
+  // Clean attachments array
+  const formattedAttachments = (attachments || []).map((a) => ({
+    id: a.id || crypto.randomUUID(),
+    filename: a.filename,
+    originalName: a.originalName || a.filename,
+    size: a.size || 0,
+    mimeType: a.mimeType || 'application/octet-stream',
+  }));
+
+  const initialMessage = {
+    id: `msg-1-${Date.now()}`,
+    sender: name.trim(),
+    senderType: 'customer',
+    text: description.trim(),
+    timestamp: now,
+    attachments: formattedAttachments,
+    emailStatus: 'pending',
+  };
 
   const newTicket = {
     id: ticketId,
     name: name.trim(),
     email: email.trim().toLowerCase(),
     phone: (phone || '').trim(),
-    category: category || 'General feedback',
+    category: category || 'General Feedback',
     subject: subject.trim(),
     description: description.trim(),
-    status: 'New', // 'New' | 'Open' | 'In Progress' | 'Waiting for Customer' | 'Resolved' | 'Closed'
+    status: 'Open', // 'Open' | 'Reopened' | 'In Progress' | 'Waiting for Customer' | 'Closed'
     priority: 'Normal',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    attachment: attachment
-      ? {
-          filename: attachment.filename,
-          originalName: attachment.originalName,
-          size: attachment.size,
-          mimeType: attachment.mimeType,
-          storedPath: attachment.storedPath,
-        }
-      : null,
-    messages: [
+    createdAt: now,
+    updatedAt: now,
+    lastResponseAt: null,
+    messages: [initialMessage],
+    internalNotes: [],
+    statusHistory: [
       {
-        id: `msg-1-${Date.now()}`,
-        sender: name.trim(),
-        senderType: 'customer',
-        text: description.trim(),
-        timestamp: new Date().toISOString(),
-        emailDelivered: false,
+        from: null,
+        to: 'Open',
+        changedBy: 'customer',
+        timestamp: now,
+        reason: 'Ticket created by customer',
       },
     ],
-    internalNotes: [],
+    emailLogs: [],
   };
 
   store.tickets.unshift(newTicket);
@@ -473,7 +506,13 @@ export function createSupportTicket({
   return newTicket;
 }
 
-export function listSupportTickets({ search = '', status = '', category = '', limit = 50, offset = 0 } = {}) {
+export function listSupportTickets({
+  search = '',
+  status = '',
+  category = '',
+  limit = 50,
+  offset = 0,
+} = {}) {
   const store = getTicketsStore();
   let list = [...store.tickets];
 
@@ -511,32 +550,141 @@ export function getSupportTicketById(id) {
   return store.tickets.find((t) => t.id === id) || null;
 }
 
-export function addSupportTicketReply(ticketId, { sender = 'KIVO Support Team', senderType = 'admin', text, emailStatus = 'pending' }) {
+// Sanitized ticket for customer view (strictly strips internalNotes and admin-private logs)
+export function getSupportTicketForCustomer(id) {
+  const ticket = getSupportTicketById(id);
+  if (!ticket) return null;
+
+  return {
+    id: ticket.id,
+    name: ticket.name,
+    email: ticket.email,
+    phone: ticket.phone,
+    category: ticket.category,
+    subject: ticket.subject,
+    status: ticket.status,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+    messages: (ticket.messages || []).map((m) => ({
+      id: m.id,
+      sender: m.sender,
+      senderType: m.senderType,
+      text: m.text,
+      timestamp: m.timestamp,
+      attachments: m.attachments || [],
+    })),
+    statusHistory: (ticket.statusHistory || []).map((s) => ({
+      to: s.to,
+      timestamp: s.timestamp,
+    })),
+  };
+}
+
+// Add a reply (from admin or customer)
+export function addSupportTicketReply(
+  ticketId,
+  {
+    sender,
+    senderType = 'admin',
+    text,
+    attachments = [],
+    emailStatus = 'pending',
+    emailError = null,
+  }
+) {
   const store = getTicketsStore();
   const ticket = store.tickets.find((t) => t.id === ticketId);
   if (!ticket) {
     throw new Error(`Ticket ${ticketId} not found.`);
   }
 
+  const now = new Date().toISOString();
+  const formattedAttachments = (attachments || []).map((a) => ({
+    id: a.id || crypto.randomUUID(),
+    filename: a.filename,
+    originalName: a.originalName || a.filename,
+    size: a.size || 0,
+    mimeType: a.mimeType || 'application/octet-stream',
+  }));
+
   const replyMsg = {
     id: `msg-${ticket.messages.length + 1}-${Date.now()}`,
     sender,
     senderType,
     text: text.trim(),
-    timestamp: new Date().toISOString(),
-    emailDelivered: emailStatus === 'sent',
-    emailError: emailStatus !== 'sent' ? emailStatus : null,
+    timestamp: now,
+    attachments: formattedAttachments,
+    emailStatus,
+    emailError,
   };
 
   ticket.messages.push(replyMsg);
-  ticket.updatedAt = new Date().toISOString();
-  // Automatically advance New/Open to In Progress or Waiting for Customer
-  if (ticket.status === 'New' || ticket.status === 'Open') {
-    ticket.status = 'Waiting for Customer';
+  ticket.updatedAt = now;
+
+  let statusChanged = false;
+  let previousStatus = ticket.status;
+
+  // CLOSED TICKET REOPENING RULE:
+  // If a customer sends a new message on a Closed ticket, automatically change status from Closed to Reopened
+  if (senderType === 'customer' && ticket.status === 'Closed') {
+    ticket.status = 'Reopened';
+    ticket.statusHistory.push({
+      from: 'Closed',
+      to: 'Reopened',
+      changedBy: 'customer',
+      timestamp: now,
+      reason: 'Customer replied to closed ticket',
+    });
+    statusChanged = true;
+  } else if (senderType === 'admin') {
+    ticket.lastResponseAt = now;
+    if (ticket.status === 'Open' || ticket.status === 'Reopened') {
+      ticket.status = 'Waiting for Customer';
+      ticket.statusHistory.push({
+        from: previousStatus,
+        to: 'Waiting for Customer',
+        changedBy: 'admin',
+        timestamp: now,
+        reason: 'Staff posted a response',
+      });
+      statusChanged = true;
+    }
   }
 
   writeJsonAtomically(TICKETS_FILE, store);
-  return { ticket, reply: replyMsg };
+  return { ticket, reply: replyMsg, statusChanged, previousStatus };
+}
+
+export function updateSupportTicketStatus(ticketId, newStatus, changedBy = 'admin', reason = '') {
+  const validStatuses = ['Open', 'Reopened', 'In Progress', 'Waiting for Customer', 'Closed'];
+  if (!validStatuses.includes(newStatus)) {
+    throw new Error(`Invalid status: ${newStatus}. Valid statuses: ${validStatuses.join(', ')}`);
+  }
+
+  const store = getTicketsStore();
+  const ticket = store.tickets.find((t) => t.id === ticketId);
+  if (!ticket) {
+    throw new Error(`Ticket ${ticketId} not found.`);
+  }
+
+  const from = ticket.status;
+  if (from === newStatus) return ticket;
+
+  const now = new Date().toISOString();
+  ticket.status = newStatus;
+  ticket.updatedAt = now;
+
+  if (!ticket.statusHistory) ticket.statusHistory = [];
+  ticket.statusHistory.push({
+    from,
+    to: newStatus,
+    changedBy,
+    timestamp: now,
+    reason,
+  });
+
+  writeJsonAtomically(TICKETS_FILE, store);
+  return ticket;
 }
 
 export function addSupportTicketNote(ticketId, { author = 'Admin', text }) {
@@ -561,23 +709,106 @@ export function addSupportTicketNote(ticketId, { author = 'Admin', text }) {
   return note;
 }
 
-export function updateSupportTicketStatus(ticketId, newStatus) {
-  const validStatuses = ['New', 'Open', 'In Progress', 'Waiting for Customer', 'Resolved', 'Closed'];
-  if (!validStatuses.includes(newStatus)) {
-    throw new Error(`Invalid status: ${newStatus}. Valid statuses: ${validStatuses.join(', ')}`);
-  }
-
+export function logTicketEmailEvent(ticketId, { type, recipient, subject, status, error = null, resendId = null }) {
   const store = getTicketsStore();
   const ticket = store.tickets.find((t) => t.id === ticketId);
+  if (!ticket) return null;
+
+  const entry = {
+    id: `email-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+    type,
+    recipient,
+    subject,
+    status, // 'delivered' | 'failed' | 'skipped'
+    error,
+    resendId,
+    timestamp: new Date().toISOString(),
+  };
+
+  if (!ticket.emailLogs) ticket.emailLogs = [];
+  ticket.emailLogs.unshift(entry);
+  writeJsonAtomically(TICKETS_FILE, store);
+  return entry;
+}
+
+// -------------------------------------------------------------
+// Customer Verification Tokens (OTP & Magic Links for IDOR Prevention)
+// -------------------------------------------------------------
+export function createVerificationToken(ticketId, email) {
+  const store = getTicketsStore();
+  const ticket = store.tickets.find(
+    (t) => t.id.toUpperCase() === ticketId.trim().toUpperCase() && t.email.toLowerCase() === email.trim().toLowerCase()
+  );
+
   if (!ticket) {
-    throw new Error(`Ticket ${ticketId} not found.`);
+    throw new Error('Ticket ID and email address do not match our records.');
   }
 
-  ticket.status = newStatus;
-  ticket.updatedAt = new Date().toISOString();
+  // Generate 6-digit OTP code (e.g. 849201)
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate high-entropy 64-character magic link token
+  const magicToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
 
+  // Clean expired tokens
+  store.verificationTokens = (store.verificationTokens || []).filter(
+    (t) => new Date(t.expiresAt).getTime() > Date.now()
+  );
+
+  const tokenEntry = {
+    ticketId: ticket.id,
+    email: ticket.email,
+    otpCode,
+    magicToken,
+    expiresAt,
+    used: false,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.verificationTokens.push(tokenEntry);
   writeJsonAtomically(TICKETS_FILE, store);
-  return ticket;
+
+  return {
+    ticket,
+    otpCode,
+    magicToken,
+    expiresAt,
+  };
+}
+
+export function verifyCustomerAccess(ticketId, email, otpOrToken) {
+  const store = getTicketsStore();
+  const cleanId = ticketId.trim().toUpperCase();
+  const cleanEmail = email ? email.trim().toLowerCase() : null;
+  const cleanInput = (otpOrToken || '').trim();
+
+  const record = (store.verificationTokens || []).find((t) => {
+    if (t.ticketId.toUpperCase() !== cleanId) return false;
+    if (cleanEmail && t.email.toLowerCase() !== cleanEmail) return false;
+    if (t.used) return false;
+    if (new Date(t.expiresAt).getTime() < Date.now()) return false;
+    return t.otpCode === cleanInput || t.magicToken === cleanInput;
+  });
+
+  if (!record) {
+    return { valid: false, error: 'Invalid or expired verification code.' };
+  }
+
+  // Mark token used
+  record.used = true;
+  writeJsonAtomically(TICKETS_FILE, store);
+
+  // Return a secure signed customer ticket session token
+  const customerSession = crypto.createHmac('sha256', 'kivo-ticket-auth-secret-token')
+    .update(`${cleanId}:${record.email}:${Date.now()}`)
+    .digest('hex');
+
+  return {
+    valid: true,
+    ticketId: record.ticketId,
+    email: record.email,
+    customerSession,
+  };
 }
 
 // -------------------------------------------------------------
@@ -595,7 +826,6 @@ export function getStoredMetadata() {
       'mac-intel': null,
     };
 
-    // Verify physical file existence
     for (const platform of Object.keys(PLATFORM_RULES)) {
       if (parsed[platform] && parsed[platform].filePath) {
         if (!fs.existsSync(parsed[platform].filePath)) {

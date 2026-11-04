@@ -14,6 +14,7 @@ import { Footer } from './components/Footer';
 import { LegalModal } from './components/LegalModal';
 import { EarlyAccessModal } from './components/EarlyAccessModal';
 import { SupportModal } from './components/SupportModal';
+import { TicketTrackingPortal } from './components/TicketTrackingPortal';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { AdminPanel } from './components/AdminPanel';
 import { CmsProvider } from './context/CmsContext';
@@ -65,6 +66,18 @@ export function App() {
         <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans">
           <CustomCursor />
           <AdminPanel onNavigateHome={() => navigateTo('/')} />
+        </div>
+      </MotionConfig>
+    );
+  }
+
+  // If on customer ticket tracking route, render dedicated tracking portal
+  if (currentPath.startsWith('/support')) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans">
+          <CustomCursor />
+          <TicketTrackingPortal onNavigateHome={() => navigateTo('/')} />
         </div>
       </MotionConfig>
     );
@@ -131,6 +144,7 @@ export function App() {
           <SupportModal
             isOpen={supportModalOpen}
             onClose={() => setSupportModalOpen(false)}
+            onNavigateTrack={(ticketId) => navigateTo(`/support/track?ticketId=${encodeURIComponent(ticketId)}`)}
           />
         </div>
       </MotionConfig>

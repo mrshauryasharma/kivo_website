@@ -162,11 +162,14 @@ export function blockRestrictedAccess(req, res, next) {
 
   // Check 5: Block sensitive file extensions (except public assets like .js, .css, .html, .png, .svg)
   // This blocks direct probes for package.json, metadata.json, README.md, tsconfig.json, server.js, etc.
-  const sensitiveExtensions =
-    /\.(env|git|bak|backup|old|log|sql|ini|conf|ya?ml|json|ts|tsx|md|sh|bat|cmd|map)$/i;
+  // Note: Authenticated attachment streams under /api/ are verified and handled by dedicated route controllers.
+  if (!requestPath.includes('/attachment/')) {
+    const sensitiveExtensions =
+      /\.(env|git|bak|backup|old|log|sql|ini|conf|ya?ml|json|ts|tsx|md|sh|bat|cmd|map)$/i;
 
-  if (sensitiveExtensions.test(requestPath)) {
-    return res.status(404).send('Not Found');
+    if (sensitiveExtensions.test(requestPath)) {
+      return res.status(404).send('Not Found');
+    }
   }
 
   next();

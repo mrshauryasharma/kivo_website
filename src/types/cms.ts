@@ -113,13 +113,22 @@ export interface CmsContent {
   };
 }
 
+export interface SupportTicketAttachment {
+  id: string;
+  filename: string;
+  originalName: string;
+  size: number;
+  mimeType: string;
+}
+
 export interface SupportTicketMessage {
   id: string;
   sender: string;
   senderType: 'customer' | 'admin' | 'system';
   text: string;
   timestamp: string;
-  emailDelivered?: boolean;
+  attachments?: SupportTicketAttachment[];
+  emailStatus?: string;
   emailError?: string | null;
 }
 
@@ -130,27 +139,43 @@ export interface SupportTicketInternalNote {
   timestamp: string;
 }
 
-export interface SupportTicketAttachment {
-  filename: string;
-  originalName: string;
-  size: number;
-  mimeType: string;
-  storedPath?: string;
+export interface SupportTicketStatusHistory {
+  from: string | null;
+  to: string;
+  changedBy: string;
+  timestamp: string;
+  reason?: string;
 }
+
+export interface SupportTicketEmailLog {
+  id: string;
+  type: string;
+  recipient: string;
+  subject: string;
+  status: string; // 'delivered' | 'failed' | 'skipped'
+  error?: string | null;
+  timestamp: string;
+  resendId?: string | null;
+  retriedAt?: string;
+}
+
+export type TicketStatus = 'Open' | 'Reopened' | 'In Progress' | 'Waiting for Customer' | 'Closed';
 
 export interface SupportTicket {
   id: string;
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
   category: string;
   subject: string;
   description: string;
-  status: 'New' | 'Open' | 'In Progress' | 'Waiting for Customer' | 'Resolved' | 'Closed';
+  status: TicketStatus;
   priority?: string;
   createdAt: string;
   updatedAt: string;
-  attachment: SupportTicketAttachment | null;
+  lastResponseAt?: string | null;
   messages: SupportTicketMessage[];
-  internalNotes: SupportTicketInternalNote[];
+  internalNotes?: SupportTicketInternalNote[];
+  statusHistory?: SupportTicketStatusHistory[];
+  emailLogs?: SupportTicketEmailLog[];
 }
