@@ -5,9 +5,10 @@ import { WindowsIcon, AppleIcon } from './Hero';
 
 interface FooterProps {
   onOpenLegal: (tab: 'privacy' | 'terms') => void;
+  onOpenSupport?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) => {
   const scrollTo = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
     const el = document.querySelector(id);
@@ -158,6 +159,17 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
                   Terms of Service
                 </button>
               </li>
+              {onOpenSupport && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={onOpenSupport}
+                    className="text-kivo-cyan hover:text-white transition-colors text-left font-medium"
+                  >
+                    Contact & Support (Report Problem)
+                  </button>
+                </li>
+              )}
               <li className="pt-2">
                 <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-slate-400">
                   <div className="flex items-center gap-1.5 text-white font-medium mb-1">

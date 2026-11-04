@@ -13,7 +13,10 @@ import { CeoBottomSection } from './components/CeoBottomSection';
 import { Footer } from './components/Footer';
 import { LegalModal } from './components/LegalModal';
 import { EarlyAccessModal } from './components/EarlyAccessModal';
+import { SupportModal } from './components/SupportModal';
+import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { AdminPanel } from './components/AdminPanel';
+import { CmsProvider } from './context/CmsContext';
 
 export function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
@@ -39,6 +42,8 @@ export function App() {
   const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
   const [earlyAccessPlatform, setEarlyAccessPlatform] = useState<'windows' | 'macos'>('windows');
 
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
+
   const handleOpenLegal = (tab: 'privacy' | 'terms') => {
     setLegalModalTab(tab);
     setLegalModalOpen(true);
@@ -47,6 +52,10 @@ export function App() {
   const handleOpenEarlyAccess = (platform: 'windows' | 'macos') => {
     setEarlyAccessPlatform(platform);
     setEarlyAccessOpen(true);
+  };
+
+  const handleOpenSupport = () => {
+    setSupportModalOpen(true);
   };
 
   // If on admin route, render dedicated admin portal
@@ -63,59 +72,69 @@ export function App() {
 
   // Otherwise render the full, preserved KIVO Browser website
   return (
-    <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white flex flex-col font-sans">
-        {/* Custom Premium KIVO Mouse Cursor */}
-        <CustomCursor />
+    <CmsProvider>
+      <MotionConfig reducedMotion="user">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white flex flex-col font-sans">
+          {/* Custom Premium KIVO Mouse Cursor */}
+          <CustomCursor />
 
-        {/* Sticky Navbar */}
-        <Navbar onOpenLegal={handleOpenLegal} />
+          {/* Optional Announcement / Maintenance Banner from CMS */}
+          <AnnouncementBanner />
 
-        {/* Main Landing Page Sections */}
-        <main className="flex-grow">
-          {/* Section 4: Hero */}
-          <Hero />
+          {/* Sticky Navbar */}
+          <Navbar onOpenLegal={handleOpenLegal} onOpenSupport={handleOpenSupport} />
 
-          {/* Section: About the CEO & Co-Founder (Top Section) */}
-          <CeoSection />
+          {/* Main Landing Page Sections */}
+          <main className="flex-grow">
+            {/* Section 4: Hero */}
+            <Hero />
 
-          {/* Section 5: Features */}
-          <Features />
+            {/* Section: About the CEO & Co-Founder (Top Section) */}
+            <CeoSection />
 
-          {/* Section 6: Privacy */}
-          <PrivacySection />
+            {/* Section 5: Features */}
+            <Features />
 
-          {/* Section 7: Browser Showcase */}
-          <BrowserShowcase />
+            {/* Section 6: Privacy */}
+            <PrivacySection />
 
-          {/* Section 9: About */}
-          <AboutSection />
+            {/* Section 7: Browser Showcase */}
+            <BrowserShowcase />
 
-          {/* Section 8: Download */}
-          <DownloadSection onOpenEarlyAccess={handleOpenEarlyAccess} />
+            {/* Section 9: About */}
+            <AboutSection />
 
-          {/* Section: Meet Our CEO & Co-Founder (Bottom Section) */}
-          <CeoBottomSection />
-        </main>
+            {/* Section 8: Download */}
+            <DownloadSection onOpenEarlyAccess={handleOpenEarlyAccess} />
 
-        {/* Section 10: Footer */}
-        <Footer onOpenLegal={handleOpenLegal} />
+            {/* Section: Meet Our CEO & Co-Founder (Bottom Section) */}
+            <CeoBottomSection />
+          </main>
 
-        {/* Interactive Modals */}
-        <LegalModal
-          key={`${legalModalTab}-${legalModalOpen}`}
-          isOpen={legalModalOpen}
-          initialTab={legalModalTab}
-          onClose={() => setLegalModalOpen(false)}
-        />
+          {/* Section 10: Footer */}
+          <Footer onOpenLegal={handleOpenLegal} onOpenSupport={handleOpenSupport} />
 
-        <EarlyAccessModal
-          isOpen={earlyAccessOpen}
-          platform={earlyAccessPlatform}
-          onClose={() => setEarlyAccessOpen(false)}
-        />
-      </div>
-    </MotionConfig>
+          {/* Interactive Modals */}
+          <LegalModal
+            key={`${legalModalTab}-${legalModalOpen}`}
+            isOpen={legalModalOpen}
+            initialTab={legalModalTab}
+            onClose={() => setLegalModalOpen(false)}
+          />
+
+          <EarlyAccessModal
+            isOpen={earlyAccessOpen}
+            platform={earlyAccessPlatform}
+            onClose={() => setEarlyAccessOpen(false)}
+          />
+
+          <SupportModal
+            isOpen={supportModalOpen}
+            onClose={() => setSupportModalOpen(false)}
+          />
+        </div>
+      </MotionConfig>
+    </CmsProvider>
   );
 }
 

@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 
 import {
   UPLOADS_DIR,
+  DATA_DIR,
   MAX_FILE_SIZE,
   PLATFORM_RULES,
   logSafeAuthDiagnostics,
@@ -27,6 +28,23 @@ import {
   completeUpload,
   cancelUpload,
 } from './server/chunkedUpload.js';
+import {
+  handleGetPublishedContent,
+  handleGetAdminCms,
+  handleSaveDraft,
+  handlePublishCms,
+  handleRevertCms,
+  handleGetHistory,
+} from './server/cms.js';
+import {
+  handleTicketSubmission,
+  handleListTickets,
+  handleGetTicketDetails,
+  handleAddReply,
+  handleAddInternalNote,
+  handleUpdateTicketStatus,
+  handleDownloadAttachment,
+} from './server/tickets.js';
 import {
   securityHeaders,
   corsProtection,
@@ -77,9 +95,9 @@ app.use(blockRestrictedAccess);
 app.use('/api/', apiRateLimiter('public'));
 app.use('/api/admin/', apiRateLimiter('admin'));
 
-// 5. Body and cookie parsing
+// 5. Body and cookie parsing (allows up to 15MB for ticket attachments)
 app.use(cookieParser());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '15mb' }));
 
 // Raw binary body parser for chunk uploads (accepts application/octet-stream up to 25MB)
 app.use(
@@ -88,13 +106,19 @@ app.use(
 );
 
 // -------------------------------------------------------------
-// Public Health & Download Endpoints
+// Public Endpoints (Health, Downloads, CMS, Support)
 // -------------------------------------------------------------
 
-// Sanitized Health check endpoint (never exposes internal filesystem paths or system specs)
+// Sanitized Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// Public published CMS content
+app.get('/api/content', handleGetPublishedContent);
+
+// Public support ticket submission
+app.post('/api/support/ticket', handleTicketSubmission);
 
 // Public status of installers (used dynamically by website download cards)
 app.get('/api/downloads/status', (req, res) => {
@@ -224,7 +248,7 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// Protected Admin API Endpoints
+// Protected Admin API Endpoints: Installers & Binary Storage
 // -------------------------------------------------------------
 
 // List current installers and disk storage information
@@ -234,6 +258,7 @@ app.get('/api/admin/installers', requireAdminAuth, (req, res) => {
     res.status(200).json({
       installers: meta,
       uploadsDir: UPLOADS_DIR,
+      dataDir: DATA_DIR,
       maxFileSize: MAX_FILE_SIZE,
       platforms: PLATFORM_RULES,
     });
@@ -243,7 +268,7 @@ app.get('/api/admin/installers', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 1: Initialize chunked upload with input validation
+// Step 1: Initialize chunked upload
 app.post('/api/admin/upload/init', requireAdminAuth, (req, res) => {
   try {
     const sanitizedParams = validateUploadInitBody(req.body, PLATFORM_RULES);
@@ -254,7 +279,7 @@ app.post('/api/admin/upload/init', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 2: Receive single chunk with validation
+// Step 2: Receive single chunk
 app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
   try {
     const uploadId = validateUploadId(
@@ -277,7 +302,7 @@ app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
   }
 });
 
-// Step 3: Complete chunked upload and assemble file
+// Step 3: Complete chunked upload and assemble file atomically
 app.post('/api/admin/upload/complete', requireAdminAuth, async (req, res) => {
   try {
     const uploadId = validateUploadId(req.body?.uploadId);
@@ -318,6 +343,25 @@ app.delete('/api/admin/installers/:platform', requireAdminAuth, (req, res) => {
 });
 
 // -------------------------------------------------------------
+// Protected Admin API Endpoints: Website CMS
+// -------------------------------------------------------------
+app.get('/api/admin/cms', requireAdminAuth, handleGetAdminCms);
+app.put('/api/admin/cms/draft', requireAdminAuth, handleSaveDraft);
+app.post('/api/admin/cms/publish', requireAdminAuth, handlePublishCms);
+app.post('/api/admin/cms/revert', requireAdminAuth, handleRevertCms);
+app.get('/api/admin/cms/history', requireAdminAuth, handleGetHistory);
+
+// -------------------------------------------------------------
+// Protected Admin API Endpoints: Support Tickets
+// -------------------------------------------------------------
+app.get('/api/admin/tickets', requireAdminAuth, handleListTickets);
+app.get('/api/admin/tickets/:id', requireAdminAuth, handleGetTicketDetails);
+app.post('/api/admin/tickets/:id/reply', requireAdminAuth, handleAddReply);
+app.post('/api/admin/tickets/:id/note', requireAdminAuth, handleAddInternalNote);
+app.patch('/api/admin/tickets/:id/status', requireAdminAuth, handleUpdateTicketStatus);
+app.get('/api/admin/tickets/:id/attachment', requireAdminAuth, handleDownloadAttachment);
+
+// -------------------------------------------------------------
 // Static Asset Serving & SPA Fallback
 // -------------------------------------------------------------
 
@@ -325,15 +369,13 @@ app.delete('/api/admin/installers/:platform', requireAdminAuth, (req, res) => {
 app.use(
   express.static(distPath, {
     dotfiles: 'ignore',
-    index: false, // Prevents directory listing / default index inside subdirectories
+    index: false,
     redirect: false,
     maxAge: '1d',
     setHeaders: (res, filePath) => {
-      // Aggressive caching for hashed assets in assets/
       if (filePath.includes(path.sep + 'assets' + path.sep)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       } else if (filePath.endsWith('.html')) {
-        // Never cache HTML so updates are immediate
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       }
     },
@@ -341,13 +383,11 @@ app.use(
 );
 
 // SPA fallback: only handle GET/HEAD requests for client-side routing (e.g. /, /kivoadmin)
-// Reject missing files with 404 instead of serving HTML
 app.use((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(404).json({ error: 'Endpoint not found.' });
   }
 
-  // If request has a file extension (e.g. missing .png, .js, .css), return 404
   if (path.extname(req.path)) {
     return res.status(404).send('Not Found');
   }
@@ -360,7 +400,7 @@ app.use((req, res) => {
 });
 
 // -------------------------------------------------------------
-// Safe Global Error Handler (Hides internal stack traces & paths)
+// Safe Global Error Handler
 // -------------------------------------------------------------
 app.use(safeErrorHandler);
 
@@ -368,5 +408,6 @@ app.listen(PORT, HOST, () => {
   console.log(`[KIVO Web Server] Listening on http://${HOST}:${PORT}`);
   console.log(`[KIVO Web Server] Serving static files from: ${distPath}`);
   console.log(`[KIVO Web Server] Installers storage path: ${UPLOADS_DIR}`);
+  console.log(`[KIVO Web Server] Database data path: ${DATA_DIR}`);
   logSafeAuthDiagnostics();
 });

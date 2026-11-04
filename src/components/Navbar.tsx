@@ -6,9 +6,10 @@ import { MagneticButton } from './MagneticButton';
 
 interface NavbarProps {
   onOpenLegal?: (tab: 'privacy' | 'terms') => void;
+  onOpenSupport?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = () => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -85,8 +86,17 @@ export const Navbar: React.FC<NavbarProps> = () => {
             ))}
           </nav>
 
-          {/* Right: Download CTA Button with Magnetic Pull */}
+          {/* Right: Support & Download CTA Button with Magnetic Pull */}
           <div className="hidden md:flex items-center gap-3">
+            {onOpenSupport && (
+              <button
+                type="button"
+                onClick={onOpenSupport}
+                className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-colors"
+              >
+                Support
+              </button>
+            )}
             <MagneticButton strength={0.15}>
               <a
                 href="#download"
@@ -145,6 +155,18 @@ export const Navbar: React.FC<NavbarProps> = () => {
                   {link.name}
                 </a>
               ))}
+              {onOpenSupport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenSupport();
+                  }}
+                  className="block w-full text-left px-4 py-2.5 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-white/[0.06] transition-colors"
+                >
+                  Contact & Support
+                </button>
+              )}
               <div className="pt-3 border-t border-white/[0.08]">
                 <a
                   href="#download"

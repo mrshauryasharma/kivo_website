@@ -123,7 +123,7 @@ export function writeChunk(uploadId, chunkIndex, buffer) {
   };
 }
 
-// Complete the chunked upload, assemble chunks, compute checksum, and save to persistent storage
+// Complete the chunked upload, assemble chunks, compute checksum, and save to persistent storage with atomic replacement
 export async function completeUpload(uploadId) {
   const session = activeUploads.get(uploadId);
   if (!session) {
@@ -142,7 +142,8 @@ export async function completeUpload(uploadId) {
   const targetExt = path.extname(session.filename);
   const targetFilename = `${session.platform}${targetExt}`;
   const targetFilePath = path.join(UPLOADS_DIR, targetFilename);
-  const tempTargetFilePath = path.join(UPLOADS_DIR, `${targetFilename}.assembling`);
+  const tempTargetFilePath = path.join(UPLOADS_DIR, `${targetFilename}.assembling.${Date.now()}`);
+  const backupFilePath = path.join(UPLOADS_DIR, `${targetFilename}.backup.${Date.now()}`);
 
   // Concatenate chunks using streams to prevent high memory usage
   const writeStream = fs.createWriteStream(tempTargetFilePath);
@@ -168,21 +169,48 @@ export async function completeUpload(uploadId) {
   if (assembledBytes !== session.totalSize) {
     if (fs.existsSync(tempTargetFilePath)) fs.unlinkSync(tempTargetFilePath);
     throw new Error(
-      `File size mismatch during assembly. Expected ${session.totalSize} bytes, assembled ${assembledBytes} bytes.`
+      `File size mismatch during assembly. Expected ${session.totalSize} bytes, assembled ${assembledBytes} bytes. Existing binary remains unchanged.`
     );
   }
 
-  // Atomically move assembled file into place
-  if (fs.existsSync(targetFilePath)) {
-    try {
-      fs.unlinkSync(targetFilePath);
-    } catch {
-      // Ignore
-    }
+  // Verify file readability
+  try {
+    fs.accessSync(tempTargetFilePath, fs.constants.R_OK);
+  } catch (err) {
+    if (fs.existsSync(tempTargetFilePath)) fs.unlinkSync(tempTargetFilePath);
+    throw new Error(`Assembled file is not readable: ${err.message}. Existing binary remains unchanged.`);
   }
-  fs.renameSync(tempTargetFilePath, targetFilePath);
 
   const sha256 = hash.digest('hex');
+
+  // ATOMIC REPLACEMENT: Never delete existing working binary before new binary is verified
+  let hasBackup = false;
+  try {
+    if (fs.existsSync(targetFilePath)) {
+      fs.renameSync(targetFilePath, backupFilePath);
+      hasBackup = true;
+    }
+    fs.renameSync(tempTargetFilePath, targetFilePath);
+
+    // Swap successful, safely purge backup
+    if (hasBackup && fs.existsSync(backupFilePath)) {
+      try {
+        fs.unlinkSync(backupFilePath);
+      } catch {
+        // Non-critical
+      }
+    }
+  } catch (swapErr) {
+    // If swap failed and backup exists, restore backup immediately!
+    if (hasBackup && fs.existsSync(backupFilePath) && !fs.existsSync(targetFilePath)) {
+      try {
+        fs.renameSync(backupFilePath, targetFilePath);
+      } catch {
+        // Ignore
+      }
+    }
+    throw new Error(`Failed to atomically replace installer: ${swapErr.message}`);
+  }
 
   // Update metadata file
   const metadata = getMetadata();

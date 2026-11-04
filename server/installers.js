@@ -1,53 +1,53 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  METADATA_FILE,
   PLATFORM_RULES,
+  UPLOADS_DIR,
 } from './config.js';
+import {
+  getStoredMetadata,
+  saveStoredMetadata,
+} from './db.js';
 
-// Load metadata from disk
+// Load metadata from persistent database
 export function getMetadata() {
-  try {
-    if (!fs.existsSync(METADATA_FILE)) {
-      return {
-        windows: null,
-        'mac-arm64': null,
-        'mac-intel': null,
-      };
-    }
-    const raw = fs.readFileSync(METADATA_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    
-    // Verify physical file existence
-    for (const platform of Object.keys(PLATFORM_RULES)) {
-      if (parsed[platform] && parsed[platform].filePath) {
-        if (!fs.existsSync(parsed[platform].filePath)) {
-          parsed[platform] = null;
-        }
-      }
-    }
-    return parsed;
-  } catch (err) {
-    console.error('[KIVO Storage] Error reading metadata:', err);
-    return {
-      windows: null,
-      'mac-arm64': null,
-      'mac-intel': null,
-    };
-  }
+  return getStoredMetadata();
 }
 
 // Save metadata atomically to disk
 export function saveMetadata(meta) {
-  const tempPath = `${METADATA_FILE}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(meta, null, 2), 'utf8');
-  fs.renameSync(tempPath, METADATA_FILE);
+  saveStoredMetadata(meta);
 }
 
-// Get installer details by platform
+// Get installer details by platform with path resolution fallback
 export function getInstaller(platform) {
   const metadata = getMetadata();
-  return metadata[platform] || null;
+  const installer = metadata[platform];
+  if (!installer) return null;
+
+  // Verify file path or attempt resolution in persistent UPLOADS_DIR
+  if (installer.filePath && fs.existsSync(installer.filePath)) {
+    return installer;
+  }
+
+  // Fallback: check persistent UPLOADS_DIR with target or original filename
+  const ext = path.extname(installer.filename || '');
+  const candidateNames = [
+    `${platform}${ext}`,
+    installer.filename,
+    PLATFORM_RULES[platform]?.defaultFileName,
+  ].filter(Boolean);
+
+  for (const name of candidateNames) {
+    const candidatePath = path.join(UPLOADS_DIR, name);
+    if (fs.existsSync(candidatePath)) {
+      installer.filePath = candidatePath;
+      saveMetadata(metadata);
+      return installer;
+    }
+  }
+
+  return null;
 }
 
 // Delete installer for platform
@@ -97,31 +97,35 @@ export function handleDownloadStream(req, res, platform) {
     const start = parseInt(parts[0], 10);
     const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
 
-    if (start >= fileSize || end >= fileSize) {
-      res.status(416).setHeader('Content-Range', `bytes */${fileSize}`);
-      return res.end();
+    if (start >= fileSize || end >= fileSize || start > end) {
+      res.setHeader('Content-Range', `bytes */${fileSize}`);
+      return res.status(416).send('Requested range not satisfiable');
     }
 
     const chunksize = end - start + 1;
-    const fileStream = fs.createReadStream(installer.filePath, { start, end });
+    const file = fs.createReadStream(installer.filePath, { start, end });
 
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
-      'Content-Type': rule.mimeType,
+      'Content-Type': rule.mimeType || 'application/octet-stream',
       'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      'Cache-Control': 'no-cache',
     });
-    fileStream.pipe(res);
+
+    file.pipe(res);
   } else {
-    // Full stream download
+    // Full binary streaming
     res.writeHead(200, {
       'Content-Length': fileSize,
-      'Content-Type': rule.mimeType,
+      'Content-Type': rule.mimeType || 'application/octet-stream',
       'Content-Disposition': `attachment; filename="${safeFilename}"`,
       'Accept-Ranges': 'bytes',
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': 'no-cache',
     });
-    fs.createReadStream(installer.filePath).pipe(res);
+
+    const file = fs.createReadStream(installer.filePath);
+    file.pipe(res);
   }
 }
