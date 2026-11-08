@@ -64,10 +64,10 @@ async function runDeploy() {
     console.log('\n[Step 2] Probing GoDaddy Hosting & Apps API:');
 
     // Test Hosting Apps endpoints
-    let appsRes = await godaddyRequest('/v1/hosting/apps');
+    let appsRes = await godaddyRequest('/v1/hosting/apps?appType=NODEJS');
     if (appsRes.status === 404 || appsRes.status === 401) {
       // Fallback check v2
-      const v2Res = await godaddyRequest('/v2/hosting/apps');
+      const v2Res = await godaddyRequest('/v2/hosting/apps?appType=NODEJS');
       if (v2Res.status === 200) appsRes = v2Res;
     }
 
@@ -81,14 +81,15 @@ async function runDeploy() {
     }
 
     let targetApp = null;
-    if (appsRes.status === 200 && Array.isArray(appsRes.data)) {
-      console.log(`  - Discovered ${appsRes.data.length} registered hosting app(s).`);
-      targetApp = appsRes.data.find(
-        (a) => (a.name && a.name.toLowerCase().includes('kivo')) || (a.subdomain && a.subdomain.includes('kivo'))
-      ) || appsRes.data[0];
+    const appList = Array.isArray(appsRes.data) ? appsRes.data : (appsRes.data?.items || []);
+    if (appsRes.status === 200 && appList.length > 0) {
+      console.log(`  - Discovered ${appList.length} registered hosting app(s).`);
+      targetApp = appList.find(
+        (a) => (a.name && a.name.toLowerCase().includes('kivo')) || (a.id && a.id.includes('NODEJS'))
+      ) || appList[0];
 
       if (targetApp) {
-        console.log(`  - Target App Identified: ${targetApp.name || targetApp.appId || targetApp.id}`);
+        console.log(`  - Target App Identified: ${targetApp.name || targetApp.id} (ID: ${targetApp.id})`);
       }
     } else {
       console.log('  - Response Data:', typeof appsRes.data === 'string' ? appsRes.data.slice(0, 300) : appsRes.data);
@@ -111,41 +112,60 @@ async function runDeploy() {
     // -------------------------------------------------------------
     const shouldPublish = process.argv.includes('--publish');
 
-    if (targetApp && targetApp.appId) {
-      console.log(`\n[Step 4] Inspecting Target App: ${targetApp.appId}`);
+    const appId = targetApp?.id || targetApp?.appId;
+    if (appId) {
+      console.log(`\n[Step 4] Inspecting Target App: ${appId}`);
       console.log(`  - App Name: ${targetApp.name || 'kivobrowser'}`);
-      console.log(`  - Subdomain: ${targetApp.subdomain || 'kivobrowser.c37.airoapp.ai'}`);
+      console.log(`  - Source: ${targetApp.source || 'GITHUB'}`);
       console.log(`  - Status: ${targetApp.status || 'Active'}`);
 
       // Probe App Details & Variants
-      const appDetail = await godaddyRequest(`/v1/hosting/apps/${targetApp.appId}`);
+      const appDetail = await godaddyRequest(`/v1/hosting/apps/${appId}`);
       if (appDetail.status === 200) {
         console.log(`  - App Details:`, JSON.stringify(appDetail.data, null, 2));
       }
 
-      if (shouldPublish) {
-        console.log(`\n[Step 5] Uploading Package to App ${targetApp.appId}...`);
-        const zipBuffer = fs.readFileSync(DEPLOY_ZIP_PATH);
+      // Check current deployments
+      console.log(`\n[Step 4.1] Fetching Deployment History for ${appId}:`);
+      const deployList = await godaddyRequest(`/v1/hosting/apps/${appId}/deployments`);
+      if (deployList.status === 200) {
+        const list = Array.isArray(deployList.data) ? deployList.data : (deployList.data?.items || []);
+        console.log(`  - Total deployments found: ${list.length}`);
+        list.slice(0, 3).forEach((dep, idx) => {
+          console.log(`    [${idx + 1}] ID: ${dep.id || dep.deploymentId} | Status: ${dep.status} | Commit: ${dep.gitCommitHash || dep.commitHash || 'N/A'} | Created: ${dep.createdAt}`);
+        });
+      } else {
+        console.log(`  - Deployments status: ${deployList.status}`, deployList.data);
+      }
 
-        const uploadRes = await godaddyRequest(`/v1/hosting/apps/${targetApp.appId}/imports`, {
+      if (shouldPublish) {
+        console.log(`\n[Step 5] Triggering New Production Deployment from GitHub on App ${appId}...`);
+        const deployRes = await godaddyRequest(`/v1/hosting/apps/${appId}/deployments`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/zip',
-            'Content-Length': zipBuffer.length.toString(),
+            'Content-Type': 'application/json',
           },
-          body: zipBuffer,
-        });
-
-        console.log(`  - Upload Response: Status ${uploadRes.status}`, uploadRes.data);
-
-        console.log('\n[Step 6] Triggering Promotion to Production:');
-        const deployRes = await godaddyRequest(`/v1/hosting/apps/${targetApp.appId}/deployments`, {
-          method: 'POST',
+          body: JSON.stringify({}),
         });
         console.log(`  - Deployment Trigger Response: Status ${deployRes.status}`, deployRes.data);
+
+        const newDepId = deployRes.data?.id || deployRes.data?.deploymentId;
+        if (newDepId) {
+          console.log(`  - Polling deployment status for ${newDepId}...`);
+          for (let i = 0; i < 20; i++) {
+            await new Promise((r) => setTimeout(r, 6000));
+            const pollRes = await godaddyRequest(`/v1/hosting/apps/${appId}/deployments/${newDepId}`);
+            if (pollRes.status === 200) {
+              const status = pollRes.data?.status;
+              console.log(`    [Poll ${i + 1}] Status: ${status} (git commit: ${pollRes.data?.gitCommitHash || 'pending'})`);
+              if (status === 'COMPLETED' || status === 'FAILED' || status === 'ERROR') {
+                break;
+              }
+            }
+          }
+        }
       } else {
-        console.log('\n[Safety Gate] Inspection completed. `--publish` flag not passed.');
-        console.log('Awaiting user confirmation before publishing package to live server.');
+        console.log('\n[Safety Gate] Inspection completed. Pass `--publish` to trigger deployment.');
       }
     } else {
       // Check Domains API and cPanel / Hosting plans
