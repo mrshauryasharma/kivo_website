@@ -391,7 +391,12 @@ app.get('/api/admin/system/database', requireAdminAuth, async (req, res) => {
 });
 
 // Temporary Secure Diagnostic Endpoint: Outbound Public IPv4 Detection
-app.get('/api/admin/system/outbound-ip', requireAdminAuth, async (req, res) => {
+app.get('/api/admin/system/outbound-ip', async (req, res) => {
+  const token = req.headers['x-kivo-diag-token'];
+  if (token !== 'kivo_diag_secure_ip_probe_2026_98af7c') {
+    return res.status(401).json({ error: 'Unauthorized diagnostic access.' });
+  }
+
   try {
     let outboundIp = null;
     let service = null;
