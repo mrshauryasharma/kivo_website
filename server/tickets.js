@@ -29,6 +29,7 @@ import {
   sendCustomerOtpEmail,
 } from './email.js';
 import { getSession } from './auth.js';
+import { assertStorageAvailable } from './storageMonitor.js';
 
 const ALLOWED_CATEGORIES = [
   'Bug Report',
@@ -117,6 +118,9 @@ export async function handleFileUpload(req, res) {
       });
     }
 
+    // Check available GoDaddy hosting storage before saving
+    assertStorageAvailable(fileBuffer.length);
+
     const fileId = crypto.randomUUID();
     const storageFilename = `${fileId}${ext}`;
     const storedPath = path.join(ATTACHMENTS_DIR, storageFilename);
@@ -135,6 +139,9 @@ export async function handleFileUpload(req, res) {
     });
   } catch (err) {
     console.error('[KIVO Support] File upload error:', err);
+    if (err.statusCode === 507) {
+      return res.status(507).json({ error: 'Server storage limit reached. Please contact administrator.' });
+    }
     res.status(500).json({ error: 'Failed to process attachment upload.' });
   }
 }

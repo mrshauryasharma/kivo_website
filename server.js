@@ -61,6 +61,8 @@ import {
   validateUploadId,
   safeErrorHandler,
 } from './server/security.js';
+import { getStorageMetrics } from './server/storageMonitor.js';
+import { checkMysqlHealth, getMysqlPool } from './server/mysql.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -258,15 +260,19 @@ app.get('/api/auth/me', (req, res) => {
 // -------------------------------------------------------------
 // Protected Admin API Endpoints: Installers & Binary Storage
 // -------------------------------------------------------------
-app.get('/api/admin/installers', requireAdminAuth, (req, res) => {
+app.get('/api/admin/installers', requireAdminAuth, async (req, res) => {
   try {
     const meta = getMetadata();
+    const storageMetrics = getStorageMetrics();
+    const dbHealth = await checkMysqlHealth();
     res.status(200).json({
       installers: meta,
       uploadsDir: UPLOADS_DIR,
       dataDir: DATA_DIR,
       maxFileSize: MAX_FILE_SIZE,
       platforms: PLATFORM_RULES,
+      storage: storageMetrics,
+      database: dbHealth,
     });
   } catch (err) {
     console.error('[KIVO API] Error listing installers:', err);
@@ -364,6 +370,27 @@ app.post('/api/admin/tickets/:id/retry-email', requireAdminAuth, handleRetryEmai
 app.get('/api/admin/tickets/:id/attachment/:filename', requireAdminAuth, handleStreamAttachment);
 
 // -------------------------------------------------------------
+// Protected Admin API Endpoints: System Storage & Database Diagnostics
+// -------------------------------------------------------------
+app.get('/api/admin/system/storage', requireAdminAuth, (req, res) => {
+  try {
+    const metrics = getStorageMetrics();
+    res.status(200).json({ success: true, storage: metrics });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve storage metrics.' });
+  }
+});
+
+app.get('/api/admin/system/database', requireAdminAuth, async (req, res) => {
+  try {
+    const health = await checkMysqlHealth();
+    res.status(200).json({ success: true, database: health });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to check database health.' });
+  }
+});
+
+// -------------------------------------------------------------
 // Static Asset Serving & SPA Fallback
 // -------------------------------------------------------------
 app.use(
@@ -407,4 +434,7 @@ app.listen(PORT, HOST, () => {
   console.log(`[KIVO Web Server] Database data path: ${DATA_DIR}`);
   console.log(`[KIVO Web Server] Attachments storage path: ${ATTACHMENTS_DIR}`);
   logSafeAuthDiagnostics();
+  getMysqlPool().catch((err) => {
+    console.warn('[KIVO Web Server] MySQL initialization notice:', err.message);
+  });
 });

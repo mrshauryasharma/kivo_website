@@ -13,6 +13,9 @@ export const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://kivobrowser.co
 
 // Helper to determine best persistent storage root
 function resolvePersistentBaseDir() {
+  if (process.env.KIVO_STORAGE_PATH) {
+    return path.resolve(process.env.KIVO_STORAGE_PATH);
+  }
   if (process.env.PERSISTENT_STORAGE_DIR) {
     return path.resolve(process.env.PERSISTENT_STORAGE_DIR);
   }
@@ -196,6 +199,35 @@ export function logSafeAuthDiagnostics() {
       '[KIVO Auth Diagnostic] ⚠️ CRITICAL: The secret KIVO_ADMIN_PASSWORD is not configured in GoDaddy environment variables!'
     );
   }
+}
+
+// GoDaddy 25 GB Hosting Storage Quotas
+export const GODADDY_MAX_STORAGE_BYTES = 25 * 1024 * 1024 * 1024; // 25 GB
+export const SAFE_STORAGE_CAP_BYTES = 23.5 * 1024 * 1024 * 1024; // 23.5 GB safety threshold
+export const MIN_FREE_DISK_BYTES = 500 * 1024 * 1024; // 500 MB minimum reserve
+
+// MySQL Database Configuration (GoDaddy cPanel / Managed MySQL)
+export function getMysqlConfig() {
+  const host = process.env.DB_HOST || process.env.MYSQL_HOST || '';
+  const user = process.env.DB_USER || process.env.MYSQL_USER || '';
+  const password = process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || '';
+  const database = process.env.DB_NAME || process.env.MYSQL_DATABASE || '';
+  const port = Number(process.env.DB_PORT || process.env.MYSQL_PORT) || 3306;
+
+  const isConfigured = Boolean(host && user && database);
+
+  return {
+    isConfigured,
+    host,
+    user,
+    password,
+    database,
+    port,
+    connectionLimit: 10,
+    waitForConnections: true,
+    queueLimit: 0,
+    connectTimeout: 10000,
+  };
 }
 
 export const ADMIN_USERNAME = () => getAdminCredentials().rawUsername?.trim() || '';

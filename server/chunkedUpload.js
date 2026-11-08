@@ -9,6 +9,7 @@ import {
   PLATFORM_RULES,
 } from './config.js';
 import { getMetadata, saveMetadata } from './installers.js';
+import { assertStorageAvailable } from './storageMonitor.js';
 
 // Active upload sessions stored in memory: Map<uploadId, UploadSession>
 const activeUploads = new Map();
@@ -53,6 +54,9 @@ export function initUpload({ platform, filename, version, totalSize, totalChunks
   if (parsedSize > MAX_FILE_SIZE) {
     throw new Error(`File size (${(parsedSize / (1024 * 1024)).toFixed(1)} MB) exceeds maximum allowed limit of 2 GB.`);
   }
+
+  // Pre-check GoDaddy 25 GB storage quota and available disk space
+  assertStorageAvailable(parsedSize);
 
   // Validate filename and extension
   const safeFilename = path.basename(filename || rule.defaultFileName);

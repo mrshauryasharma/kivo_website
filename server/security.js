@@ -156,7 +156,7 @@ export function blockRestrictedAccess(req, res, next) {
   }
 
   // Check 4: Block private server directories from direct URL access
-  if (/(^\/|\/)(server|storage|src|node_modules|logs|test_storage)(\/|$)/i.test(requestPath)) {
+  if (!requestPath.startsWith('/api/') && /(^\/|\/)(server|storage|src|node_modules|logs|test_storage)(\/|$)/i.test(requestPath)) {
     return res.status(404).send('Not Found');
   }
 

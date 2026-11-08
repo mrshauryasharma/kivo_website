@@ -42,8 +42,15 @@ Configure these environment variables in your GoDaddy Node.js Hosting control pa
 | `KIVO_ADMIN_USERNAME` | Optional | `kivoadminshaurya` | The username required to log into `/kivoadmin`. |
 | `KIVO_ADMIN_PASSWORD` | **Required Secret** | `None` (must be set) | **Your secret admin password**. Configure securely in GoDaddy environment secrets. |
 | `SESSION_SECRET` | Optional / Recommended | Auto fallback | Secret key (32+ chars) used to sign session cookies and CSRF tokens. |
-| `UPLOADS_DIR` | Optional / Recommended | Persistent home or `./public/assets/installers` | **Persistent disk directory for installers** outside temporary code deploy roots (e.g. `/home/<username>/kivo_storage/installers`). |
-| `DATA_DIR` | Optional / Recommended | Persistent home or `./public/assets/data` | **Persistent disk directory for database** (CMS content, tickets, and metadata). |
+| `KIVO_STORAGE_PATH` | Optional / Recommended | Persistent home or `./public/assets` | **Root persistent storage path** (e.g. `/home/<user>/kivo_storage` on cPanel). |
+| `UPLOADS_DIR` | Optional / Recommended | `${KIVO_STORAGE_PATH}/installers` | Persistent directory for installers. |
+| `DATA_DIR` | Optional / Recommended | `${KIVO_STORAGE_PATH}/data` | Persistent directory for database files. |
+| `ATTACHMENTS_DIR` | Optional / Recommended | `${KIVO_STORAGE_PATH}/attachments` | Private persistent directory for customer attachments. |
+| `DB_HOST` / `MYSQL_HOST` | Optional | `localhost` / `127.0.0.1` | GoDaddy cPanel MySQL database hostname. |
+| `DB_USER` / `MYSQL_USER` | Optional | `None` | MySQL database user. |
+| `DB_PASSWORD` / `MYSQL_PASSWORD` | Optional | `None` | MySQL database password. |
+| `DB_NAME` / `MYSQL_DATABASE` | Optional | `None` | MySQL database name. |
+| `DB_PORT` / `MYSQL_PORT` | Optional | `3306` | MySQL port. |
 | `RESEND_API_KEY` | Optional / Recommended | `None` | Official Resend API Key (`re_...`) for automatic email delivery. |
 | `RESEND_FROM_EMAIL` | Optional | `KIVO Support <onboarding@resend.dev>` | The "From" email address configured on Resend (e.g., `support@kivobrowser.com`). |
 | `SUPPORT_NOTIFICATION_EMAIL` | Optional | `support@kivobrowser.com` | Internal mailbox where notifications for incoming customer tickets are sent. |
