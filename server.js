@@ -390,6 +390,51 @@ app.get('/api/admin/system/database', requireAdminAuth, async (req, res) => {
   }
 });
 
+// Temporary Secure Diagnostic Endpoint: Outbound Public IPv4 Detection
+app.get('/api/admin/system/outbound-ip', requireAdminAuth, async (req, res) => {
+  try {
+    let outboundIp = null;
+    let service = null;
+
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.ip) {
+          outboundIp = data.ip.trim();
+          service = 'api.ipify.org';
+        }
+      }
+    } catch {}
+
+    if (!outboundIp) {
+      try {
+        const resp2 = await fetch('https://icanhazip.com', { signal: AbortSignal.timeout(5000) });
+        if (resp2.ok) {
+          const text = await resp2.text();
+          if (text) {
+            outboundIp = text.trim();
+            service = 'icanhazip.com';
+          }
+        }
+      } catch {}
+    }
+
+    if (outboundIp) {
+      return res.status(200).json({
+        success: true,
+        outboundIp,
+        service,
+        detectedAt: new Date().toISOString(),
+      });
+    }
+
+    res.status(502).json({ error: 'Could not detect outbound IP from external services.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // -------------------------------------------------------------
 // Static Asset Serving & SPA Fallback
 // -------------------------------------------------------------
