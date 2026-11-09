@@ -538,10 +538,12 @@ app.post('/api/admin/updates/release', requireAdminAuth, (req, res) => {
       bugFixes: Array.isArray(bugFixes) ? bugFixes : [],
       securityImprovements: Array.isArray(securityImprovements) ? securityImprovements : [],
       systemRequirements: systemRequirements || {
+        android: 'Android 10.0 or newer, 3 GB RAM',
         windows: 'Windows 10 / 11 (64-bit), 4 GB RAM',
         macos: 'macOS 12.0 or newer, 4 GB RAM',
       },
       downloads: {
+        android: { platform: 'android', fileName: 'KivoBrowser.apk', downloadUrl: '/api/download/android' },
         windows: { platform: 'windows', fileName: 'KivoSetup-x64.exe', downloadUrl: '/api/download/windows' },
         macArm: { platform: 'mac-arm64', fileName: 'Kivo-arm64.dmg', downloadUrl: '/api/download/mac-arm64' },
         macIntel: { platform: 'mac-intel', fileName: 'Kivo-intel.dmg', downloadUrl: '/api/download/mac-intel' },

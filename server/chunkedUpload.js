@@ -55,7 +55,7 @@ setInterval(() => {
 export function initUpload({ platform, filename, version, totalSize, totalChunks }) {
   const rule = PLATFORM_RULES[platform];
   if (!rule) {
-    throw new Error(`Invalid target platform: "${platform}". Must be windows, mac-arm64, or mac-intel.`);
+    throw new Error(`Invalid target platform: "${platform}". Must be android, windows, mac-arm64, or mac-intel.`);
   }
 
   // Validate size

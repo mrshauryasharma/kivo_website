@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
+import { useCms } from '../context/CmsContext';
 
 interface FeatureItem {
   icon: React.ElementType;
@@ -113,6 +114,9 @@ const featuresList: FeatureItem[] = [
 ];
 
 export const Features: React.FC = () => {
+  const { content } = useCms();
+  const cmsFeatures = content.features;
+
   return (
     <section id="features" className="py-24 sm:py-32 relative overflow-hidden bg-kivo-bg">
       {/* Background glow elements with organic flow */}
@@ -140,10 +144,14 @@ export const Features: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-display mb-6"
           >
-            Everything You Need.{' '}
-            <span className="text-gradient-cyan-purple">
-              Nothing You Don't.
-            </span>
+            {cmsFeatures?.sectionTitle || (
+              <>
+                Everything You Need.{' '}
+                <span className="text-gradient-cyan-purple">
+                  Nothing You Don't.
+                </span>
+              </>
+            )}
           </motion.h2>
 
           <motion.p
@@ -153,7 +161,8 @@ export const Features: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-base sm:text-lg text-slate-400 leading-relaxed font-normal"
           >
-            A desktop browser engineered without bloatware, heavy surveillance, or confusing menus. Only fast, purposeful tools.
+            {cmsFeatures?.sectionSubtitle ||
+              'A desktop browser engineered without bloatware, heavy surveillance, or confusing menus. Only fast, purposeful tools.'}
           </motion.p>
         </div>
 

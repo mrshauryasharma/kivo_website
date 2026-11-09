@@ -20,8 +20,15 @@ import {
 } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
 import { MagneticButton } from './MagneticButton';
+import { useCms } from '../context/CmsContext';
 
-// Custom clean SVGs for Windows and Apple platforms
+// Custom clean SVGs for Android, Windows and Apple platforms
+export const AndroidIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9996.4482.9996.9993.0001.5511-.4486.9997-.9996.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9997.4482.9997.9993 0 .5511-.4486.9997-.9997.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.0838 12 8.0838s-3.5902.3278-5.1368.8659L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396" />
+  </svg>
+);
+
 export const WindowsIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
     <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.802" />
@@ -35,6 +42,8 @@ export const AppleIcon = ({ className = 'w-4 h-4' }: { className?: string }) => 
 );
 
 export const Hero: React.FC = () => {
+  const { content } = useCms();
+  const hero = content.hero;
   const [activeTab, setActiveTab] = useState<'kivo' | 'github'>('kivo');
 
   const scrollTo = (id: string) => {
@@ -61,7 +70,7 @@ export const Hero: React.FC = () => {
           >
             <div className="w-2 h-2 rounded-full bg-kivo-cyan animate-pulse" />
             <span className="text-xs sm:text-sm font-medium text-slate-300">
-              Next-Generation Desktop Browser
+              {hero?.badge || 'Next-Generation Desktop Browser'}
             </span>
             <span className="text-white/30">•</span>
             <span className="text-xs sm:text-sm font-semibold text-gradient-cyan-purple flex items-center gap-1">
@@ -77,10 +86,25 @@ export const Hero: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-5xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight text-white mb-4 font-display"
           >
-            Browse{' '}
-            <span className="text-gradient-kivo drop-shadow-sm">
-              Freely.
-            </span>
+            {hero?.title ? (
+              hero.title.includes(' ') ? (
+                <>
+                  {hero.title.split(' ').slice(0, -1).join(' ')}{' '}
+                  <span className="text-gradient-kivo drop-shadow-sm">
+                    {hero.title.split(' ').slice(-1)[0]}
+                  </span>
+                </>
+              ) : (
+                <span className="text-gradient-kivo drop-shadow-sm">{hero.title}</span>
+              )
+            ) : (
+              <>
+                Browse{' '}
+                <span className="text-gradient-kivo drop-shadow-sm">
+                  Freely.
+                </span>
+              </>
+            )}
           </motion.h1>
 
           {/* Supporting Headline */}
@@ -90,7 +114,7 @@ export const Hero: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-xl sm:text-2xl lg:text-3xl font-medium text-slate-200 mb-6"
           >
-            Your browser. Your privacy. Your freedom.
+            {hero?.subtitle || 'Your browser. Your privacy. Your freedom.'}
           </motion.h2>
 
           {/* Description */}
@@ -113,13 +137,13 @@ export const Hero: React.FC = () => {
             {/* Primary CTA */}
             <MagneticButton strength={0.2} className="w-full sm:w-auto">
               <button
-                onClick={() => scrollTo('#download')}
+                onClick={() => scrollTo(hero?.primaryCtaLink || '#download')}
                 className="w-full sm:w-auto relative group rounded-full p-[1px] font-semibold text-white shadow-xl shadow-kivo-blue/20 transition-all duration-300 active:scale-95 hover:shadow-glow-kivo"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-full animate-gradient-x opacity-95 group-hover:opacity-100 transition-opacity" />
                 <div className="relative flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-gradient-to-r from-kivo-blue via-[#066fdc] to-kivo-purple text-base font-semibold text-white transition-all">
                   <Download className="w-5 h-5 text-white group-hover:scale-110 transition-transform duration-200" />
-                  <span>Download KIVO</span>
+                  <span>{hero?.primaryCtaText || 'Download KIVO'}</span>
                 </div>
               </button>
             </MagneticButton>
@@ -127,10 +151,10 @@ export const Hero: React.FC = () => {
             {/* Secondary CTA */}
             <MagneticButton strength={0.15} className="w-full sm:w-auto">
               <button
-                onClick={() => scrollTo('#features')}
+                onClick={() => scrollTo(hero?.secondaryCtaLink || '#features')}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 hover:text-white border border-white/[0.1] hover:border-kivo-cyan/40 backdrop-blur-md text-base font-medium transition-all group duration-300"
               >
-                <span>Explore Features</span>
+                <span>{hero?.secondaryCtaText || 'Explore Features'}</span>
                 <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-kivo-cyan group-hover:translate-x-1 transition-all" />
               </button>
             </MagneticButton>
@@ -147,6 +171,10 @@ export const Hero: React.FC = () => {
               <span className="text-slate-400">Available for</span>
             </span>
             <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-slate-300">
+                <AndroidIcon className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="font-medium">Android</span>
+              </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-slate-300">
                 <WindowsIcon className="w-3.5 h-3.5 text-kivo-cyan" />
                 <span className="font-medium">Windows</span>

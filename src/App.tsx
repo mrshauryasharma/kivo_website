@@ -42,7 +42,7 @@ export function App() {
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms'>('privacy');
 
   const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
-  const [earlyAccessPlatform, setEarlyAccessPlatform] = useState<'windows' | 'macos'>('windows');
+  const [earlyAccessPlatform, setEarlyAccessPlatform] = useState<'windows' | 'macos' | 'android'>('android');
 
   const [supportModalOpen, setSupportModalOpen] = useState(false);
 
@@ -51,7 +51,7 @@ export function App() {
     setLegalModalOpen(true);
   };
 
-  const handleOpenEarlyAccess = (platform: 'windows' | 'macos') => {
+  const handleOpenEarlyAccess = (platform: 'windows' | 'macos' | 'android') => {
     setEarlyAccessPlatform(platform);
     setEarlyAccessOpen(true);
   };

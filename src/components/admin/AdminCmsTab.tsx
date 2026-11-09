@@ -20,9 +20,60 @@ import {
   X,
 } from 'lucide-react';
 import type { CmsContent } from '../../types/cms';
+import { DEFAULT_CMS_FRONTEND } from '../../context/CmsContext';
 
 interface AdminCmsTabProps {
   csrfToken: string;
+}
+
+function deepMergeCms(base: CmsContent, incoming?: Partial<CmsContent> | null): CmsContent {
+  if (!incoming) return JSON.parse(JSON.stringify(base));
+  return {
+    ...base,
+    ...incoming,
+    hero: { ...base.hero, ...(incoming.hero || {}) },
+    navigation: {
+      ...base.navigation,
+      ...(incoming.navigation || {}),
+      navLinks: incoming.navigation?.navLinks || base.navigation.navLinks,
+    },
+    features: {
+      ...base.features,
+      ...(incoming.features || {}),
+      items: incoming.features?.items || base.features.items,
+    },
+    privacy: {
+      ...base.privacy,
+      ...(incoming.privacy || {}),
+      badges: incoming.privacy?.badges || base.privacy.badges,
+    },
+    showcase: {
+      ...base.showcase,
+      ...(incoming.showcase || {}),
+      tabs: incoming.showcase?.tabs || base.showcase.tabs,
+    },
+    about: { ...base.about, ...(incoming.about || {}) },
+    ceo: {
+      ...base.ceo,
+      ...(incoming.ceo || {}),
+      social: { ...base.ceo.social, ...(incoming.ceo?.social || {}) },
+      expertise: Array.isArray(incoming.ceo?.expertise) ? incoming.ceo.expertise : base.ceo.expertise,
+      leadershipPrinciples: incoming.ceo?.leadershipPrinciples || base.ceo.leadershipPrinciples,
+    },
+    downloads: {
+      ...base.downloads,
+      ...(incoming.downloads || {}),
+      platforms: incoming.downloads?.platforms || base.downloads.platforms,
+    },
+    footer: {
+      ...base.footer,
+      ...(incoming.footer || {}),
+      links: incoming.footer?.links || base.footer.links,
+    },
+    contact: { ...base.contact, ...(incoming.contact || {}) },
+    seo: { ...base.seo, ...(incoming.seo || {}) },
+    announcement: { ...base.announcement, ...(incoming.announcement || {}) },
+  };
 }
 
 export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
@@ -41,6 +92,7 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [publishNote, setPublishNote] = useState('');
+  const [expertiseInput, setExpertiseInput] = useState<string>('');
 
   const fetchCmsData = async () => {
     setIsLoading(true);
@@ -50,12 +102,22 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        setDraft(data.draft);
-        setPublished(data.published);
+        const mergedDraft = deepMergeCms(DEFAULT_CMS_FRONTEND, data.draft || data.published);
+        const mergedPublished = deepMergeCms(DEFAULT_CMS_FRONTEND, data.published);
+        setDraft(mergedDraft);
+        setPublished(mergedPublished);
         setHistoryList(data.history || []);
+        setExpertiseInput((mergedDraft.ceo?.expertise || []).join(', '));
+      } else {
+        const fallback = JSON.parse(JSON.stringify(DEFAULT_CMS_FRONTEND));
+        setDraft(fallback);
+        setExpertiseInput((fallback.ceo?.expertise || []).join(', '));
       }
     } catch {
       setStatusMessage({ type: 'error', text: 'Failed to load CMS content.' });
+      const fallback = JSON.parse(JSON.stringify(DEFAULT_CMS_FRONTEND));
+      setDraft(fallback);
+      setExpertiseInput((fallback.ceo?.expertise || []).join(', '));
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +146,7 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
       if (!res.ok) throw new Error(data.error || 'Failed to save draft');
 
       setStatusMessage({ type: 'success', text: 'Draft saved successfully.' });
+      window.dispatchEvent(new Event('kivo-cms-updated'));
       setTimeout(() => setStatusMessage(null), 3500);
     } catch (err: any) {
       setStatusMessage({ type: 'error', text: err.message || 'Error saving draft.' });
@@ -104,7 +167,10 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
         },
-        body: JSON.stringify({ note: publishNote || 'Updated content via Admin CMS' }),
+        body: JSON.stringify({
+          draft,
+          note: publishNote.trim() || 'Updated content via Admin CMS',
+        }),
       });
 
       const data = await res.json();
@@ -113,13 +179,23 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
       setPublished(data.published);
       setPublishNote('');
       setStatusMessage({ type: 'success', text: 'Published live to website!' });
-      fetchCmsData();
+      window.dispatchEvent(new Event('kivo-cms-updated'));
+      await fetchCmsData();
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       setStatusMessage({ type: 'error', text: err.message || 'Error publishing.' });
     } finally {
       setIsPublishing(false);
     }
+  };
+
+  const handleResetDefaults = () => {
+    if (!window.confirm('Reset draft to factory default KIVO website content?')) return;
+    const reset = JSON.parse(JSON.stringify(DEFAULT_CMS_FRONTEND));
+    setDraft(reset);
+    setExpertiseInput((reset.ceo?.expertise || []).join(', '));
+    setStatusMessage({ type: 'success', text: 'Draft reset to defaults. Click "Save Draft" or "Publish to Live" to apply.' });
+    setTimeout(() => setStatusMessage(null), 4000);
   };
 
   const handleRevert = async (revisionId: string) => {
@@ -199,6 +275,16 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Preview Draft</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetDefaults}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-slate-400 hover:text-rose-300 border border-white/[0.08] transition-colors"
+            title="Reset to official factory defaults"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Defaults</span>
           </button>
 
           <button
@@ -444,16 +530,19 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
                 </label>
                 <input
                   type="text"
-                  value={draft.ceo.expertise.join(', ')}
-                  onChange={(e) =>
+                  value={expertiseInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setExpertiseInput(val);
+                    const parsed = val.split(',').map((s) => s.trim()).filter(Boolean);
                     setDraft({
                       ...draft,
                       ceo: {
                         ...draft.ceo,
-                        expertise: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                        expertise: parsed,
                       },
-                    })
-                  }
+                    });
+                  }}
                   className="w-full px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-white focus:outline-none focus:border-kivo-cyan"
                 />
               </div>
@@ -628,8 +717,9 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
                           type="checkbox"
                           checked={item.isVisible}
                           onChange={(e) => {
-                            const updated = [...draft.features.items];
-                            updated[idx].isVisible = e.target.checked;
+                            const updated = draft.features.items.map((it, i) =>
+                              i === idx ? { ...it, isVisible: e.target.checked } : it
+                            );
                             setDraft({ ...draft, features: { ...draft.features, items: updated } });
                           }}
                         />
@@ -638,20 +728,22 @@ export const AdminCmsTab: React.FC<AdminCmsTabProps> = ({ csrfToken }) => {
                     </div>
                     <input
                       type="text"
-                      value={item.title}
+                      value={item.title || ''}
                       onChange={(e) => {
-                        const updated = [...draft.features.items];
-                        updated[idx].title = e.target.value;
+                        const updated = draft.features.items.map((it, i) =>
+                          i === idx ? { ...it, title: e.target.value } : it
+                        );
                         setDraft({ ...draft, features: { ...draft.features, items: updated } });
                       }}
                       className="w-full px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white font-semibold focus:outline-none focus:border-kivo-cyan"
                     />
                     <textarea
                       rows={2}
-                      value={item.description}
+                      value={item.description || ''}
                       onChange={(e) => {
-                        const updated = [...draft.features.items];
-                        updated[idx].description = e.target.value;
+                        const updated = draft.features.items.map((it, i) =>
+                          i === idx ? { ...it, description: e.target.value } : it
+                        );
                         setDraft({ ...draft, features: { ...draft.features, items: updated } });
                       }}
                       className="w-full px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-slate-300 focus:outline-none focus:border-kivo-cyan resize-none"

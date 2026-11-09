@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bell, CheckCircle2 } from 'lucide-react';
-import { WindowsIcon, AppleIcon } from './Hero';
+import { WindowsIcon, AppleIcon, AndroidIcon } from './Hero';
 
 interface EarlyAccessModalProps {
   isOpen: boolean;
-  platform: 'windows' | 'macos';
+  platform: 'windows' | 'macos' | 'android';
   onClose: () => void;
 }
 
@@ -42,8 +42,18 @@ export const EarlyAccessModal: React.FC<EarlyAccessModalProps> = ({
     }
   };
 
-  const platformTitle = platform === 'windows' ? 'KIVO for Windows' : 'KIVO for macOS';
-  const PlatformIcon = platform === 'windows' ? WindowsIcon : AppleIcon;
+  const platformTitle =
+    platform === 'android'
+      ? 'KIVO for Android'
+      : platform === 'windows'
+      ? 'KIVO for Windows'
+      : 'KIVO for macOS';
+  const PlatformIcon =
+    platform === 'android'
+      ? AndroidIcon
+      : platform === 'windows'
+      ? WindowsIcon
+      : AppleIcon;
 
   return (
     <AnimatePresence>

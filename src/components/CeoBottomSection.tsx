@@ -3,8 +3,23 @@ import { motion } from 'framer-motion';
 import { Sparkles, ExternalLink, GraduationCap } from 'lucide-react';
 import { LinkedInIcon, GitHubIcon } from './SocialIcons';
 import logoImg from '../assets/kivo-logo.png';
+import { useCms } from '../context/CmsContext';
 
 export const CeoBottomSection: React.FC = () => {
+  const { content } = useCms();
+  const ceo = content.ceo;
+
+  if (ceo && ceo.isVisible === false) {
+    return null;
+  }
+
+  const monogram = (ceo?.name || 'Shaurya Sharma')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'SS';
+
   return (
     <section id="meet-ceo" className="py-16 sm:py-20 relative overflow-hidden bg-[#050810] border-t border-white/[0.06]">
       {/* Ambient background glow */}
@@ -29,7 +44,7 @@ export const CeoBottomSection: React.FC = () => {
                 <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple opacity-75 blur-sm" />
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#090D1A] border border-white/[0.15] flex items-center justify-center shadow-lg">
                   <span className="text-2xl sm:text-3xl font-extrabold font-display text-gradient-kivo">
-                    SS
+                    {monogram}
                   </span>
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-[#090D1A] border border-white/[0.15] p-1 flex items-center justify-center shadow-md">
@@ -44,20 +59,22 @@ export const CeoBottomSection: React.FC = () => {
                     <Sparkles className="w-3 h-3 text-kivo-cyan" />
                     Meet Our CEO & Co-Founder
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium">
-                    <GraduationCap className="w-3 h-3 text-slate-400" />
-                    GBU (ECE - AI & ML)
-                  </span>
+                  {ceo?.education && (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+                      <GraduationCap className="w-3 h-3 text-slate-400" />
+                      {ceo.education}
+                    </span>
+                  )}
                 </div>
 
                 <h3 className="text-xl sm:text-2xl font-extrabold text-white font-display">
-                  Shaurya Sharma
+                  {ceo?.name || 'Shaurya Sharma'}
                 </h3>
                 <p className="text-xs sm:text-sm font-semibold text-gradient-kivo">
-                  CEO & Co-Founder – KIVO Browser
+                  {ceo?.designation || 'CEO & Co-Founder – KIVO Browser'}
                 </p>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal pt-1">
-                  Leading the architecture, IoT integration, and frontend engineering of KIVO Browser to deliver a sovereign, fast, and beautifully customizable desktop browsing experience.
+                  {ceo?.bio || 'Leading the architecture, IoT integration, and frontend engineering of KIVO Browser to deliver a sovereign, fast, and beautifully customizable desktop browsing experience.'}
                 </p>
               </div>
             </div>
@@ -65,7 +82,7 @@ export const CeoBottomSection: React.FC = () => {
             {/* Right: Quick Social Connect Buttons */}
             <div className="flex sm:flex-col items-center gap-3 w-full sm:w-auto flex-shrink-0 pt-2 sm:pt-0">
               <a
-                href="https://www.linkedin.com/in/shaurya-sharma200"
+                href={ceo?.social?.linkedin || 'https://www.linkedin.com/in/shaurya-sharma200'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] hover:border-[#0A66C2]/60 text-slate-200 hover:text-white text-xs font-semibold transition-all duration-200 shadow-sm"
@@ -76,7 +93,7 @@ export const CeoBottomSection: React.FC = () => {
               </a>
 
               <a
-                href="https://github.com/mrshauryasharma"
+                href={ceo?.social?.github || 'https://github.com/mrshauryasharma'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] hover:border-kivo-purple/60 text-slate-200 hover:text-white text-xs font-semibold transition-all duration-200 shadow-sm"

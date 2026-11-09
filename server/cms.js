@@ -94,8 +94,14 @@ export function handleSaveDraft(req, res) {
 
 export function handlePublishCms(req, res) {
   try {
-    const { note } = req.body || {};
+    const { draft, note } = req.body || {};
     const author = req.adminUser?.username || 'admin';
+
+    // If draft content is provided with publish, save it atomically first
+    if (draft && typeof draft === 'object') {
+      const sanitizedDraft = sanitizeCmsInput(draft);
+      saveCmsDraft(sanitizedDraft);
+    }
 
     const result = publishCms(author, typeof note === 'string' ? note.slice(0, 200) : undefined);
 

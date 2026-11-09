@@ -13,7 +13,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import { WindowsIcon, AppleIcon } from '../Hero';
+import { WindowsIcon, AppleIcon, AndroidIcon } from '../Hero';
 
 export interface InstallerMetadata {
   platform: string;
@@ -78,6 +78,7 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
   >({});
 
   const [versionInputs, setVersionInputs] = useState<Record<string, string>>({
+    android: '1.0.0',
     windows: '1.0.0',
     'mac-arm64': '1.0.0',
     'mac-intel': '1.0.0',
@@ -87,6 +88,18 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
   const [deletingPlatform, setDeletingPlatform] = useState<string | null>(null);
 
   const platformsList = [
+    {
+      id: 'android',
+      name: 'Android Mobile',
+      architecture: 'Universal APK (ARM64 / v7a / x86_64)',
+      ext: '.apk',
+      icon: AndroidIcon,
+      color: 'text-emerald-400',
+      borderColor: 'border-emerald-500/30',
+      badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+      accept: '.apk,application/vnd.android.package-archive',
+      description: 'Universal Android application package (.apk) for smartphones & tablets.',
+    },
     {
       id: 'windows',
       name: 'Windows Desktop',

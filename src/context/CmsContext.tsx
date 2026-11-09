@@ -278,6 +278,9 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     fetchContent();
+    const handleUpdate = () => fetchContent();
+    window.addEventListener('kivo-cms-updated', handleUpdate);
+    return () => window.removeEventListener('kivo-cms-updated', handleUpdate);
   }, [fetchContent]);
 
   return (

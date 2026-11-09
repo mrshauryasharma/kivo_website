@@ -340,9 +340,53 @@ export function getCmsDraft() {
 
 export function saveCmsDraft(draft) {
   const data = getCmsData();
+  const current = data.draft || data.published || DEFAULT_CMS_CONTENT;
   data.draft = {
-    ...data.draft,
+    ...DEFAULT_CMS_CONTENT,
+    ...current,
     ...draft,
+    hero: { ...(current.hero || DEFAULT_CMS_CONTENT.hero), ...(draft.hero || {}) },
+    navigation: {
+      ...(current.navigation || DEFAULT_CMS_CONTENT.navigation),
+      ...(draft.navigation || {}),
+      navLinks: draft.navigation?.navLinks || current.navigation?.navLinks || DEFAULT_CMS_CONTENT.navigation.navLinks,
+    },
+    features: {
+      ...(current.features || DEFAULT_CMS_CONTENT.features),
+      ...(draft.features || {}),
+      items: draft.features?.items || current.features?.items || DEFAULT_CMS_CONTENT.features.items,
+    },
+    privacy: {
+      ...(current.privacy || DEFAULT_CMS_CONTENT.privacy),
+      ...(draft.privacy || {}),
+      badges: draft.privacy?.badges || current.privacy?.badges || DEFAULT_CMS_CONTENT.privacy.badges,
+    },
+    showcase: {
+      ...(current.showcase || DEFAULT_CMS_CONTENT.showcase),
+      ...(draft.showcase || {}),
+      tabs: draft.showcase?.tabs || current.showcase?.tabs || DEFAULT_CMS_CONTENT.showcase.tabs,
+    },
+    about: { ...(current.about || DEFAULT_CMS_CONTENT.about), ...(draft.about || {}) },
+    ceo: {
+      ...(current.ceo || DEFAULT_CMS_CONTENT.ceo),
+      ...(draft.ceo || {}),
+      social: { ...(current.ceo?.social || DEFAULT_CMS_CONTENT.ceo.social), ...(draft.ceo?.social || {}) },
+      expertise: Array.isArray(draft.ceo?.expertise) ? draft.ceo.expertise : (current.ceo?.expertise || DEFAULT_CMS_CONTENT.ceo.expertise),
+      leadershipPrinciples: draft.ceo?.leadershipPrinciples || current.ceo?.leadershipPrinciples || DEFAULT_CMS_CONTENT.ceo.leadershipPrinciples,
+    },
+    downloads: {
+      ...(current.downloads || DEFAULT_CMS_CONTENT.downloads),
+      ...(draft.downloads || {}),
+      platforms: draft.downloads?.platforms || current.downloads?.platforms || DEFAULT_CMS_CONTENT.downloads.platforms,
+    },
+    footer: {
+      ...(current.footer || DEFAULT_CMS_CONTENT.footer),
+      ...(draft.footer || {}),
+      links: draft.footer?.links || current.footer?.links || DEFAULT_CMS_CONTENT.footer.links,
+    },
+    contact: { ...(current.contact || DEFAULT_CMS_CONTENT.contact), ...(draft.contact || {}) },
+    seo: { ...(current.seo || DEFAULT_CMS_CONTENT.seo), ...(draft.seo || {}) },
+    announcement: { ...(current.announcement || DEFAULT_CMS_CONTENT.announcement), ...(draft.announcement || {}) },
   };
   writeJsonAtomically(CMS_FILE, data);
   return data.draft;
@@ -938,10 +982,12 @@ export function getStoredMetadata() {
       raw = readJsonSafely(LEGACY_METADATA_FILE, null);
     }
     const parsed = raw || {
+      android: null,
       windows: null,
       'mac-arm64': null,
       'mac-intel': null,
     };
+    if (parsed.android === undefined) parsed.android = null;
 
     let needsSave = false;
 
@@ -983,6 +1029,7 @@ export function getStoredMetadata() {
   } catch (err) {
     console.error('[KIVO DB] Error reading installer metadata:', err);
     return {
+      android: null,
       windows: null,
       'mac-arm64': null,
       'mac-intel': null,

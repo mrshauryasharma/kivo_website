@@ -1,7 +1,8 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
-import { WindowsIcon, AppleIcon } from './Hero';
+import { WindowsIcon, AppleIcon, AndroidIcon } from './Hero';
+import { useCms } from '../context/CmsContext';
 
 interface FooterProps {
   onOpenLegal: (tab: 'privacy' | 'terms') => void;
@@ -9,6 +10,9 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) => {
+  const { content } = useCms();
+  const footer = content.footer;
+
   const scrollTo = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
     const el = document.querySelector(id);
@@ -48,10 +52,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
             </a>
 
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
-              A modern privacy-first desktop web browser built for Windows and macOS. Fast, sovereign, and deeply customizable.
+              {footer?.tagline || 'A modern privacy-first desktop web browser built for Windows, macOS and Android. Fast, sovereign, and deeply customizable.'}
             </p>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-xs text-slate-300">
+                <AndroidIcon className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Android 10+</span>
+              </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-xs text-slate-300">
                 <WindowsIcon className="w-3.5 h-3.5 text-kivo-cyan" />
                 <span>Windows 10 / 11</span>
@@ -185,7 +193,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
 
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© 2026 KIVO Browser. All rights reserved.</p>
+          <p>{footer?.copyright || '© 2026 KIVO Browser. All rights reserved.'}</p>
           <div className="flex items-center gap-6">
             <span className="font-medium text-slate-400">
               KIVO — Browse Freely.

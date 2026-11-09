@@ -8,8 +8,11 @@ import {
   Heart,
 } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
+import { useCms } from '../context/CmsContext';
 
 export const AboutSection: React.FC = () => {
+  const { content } = useCms();
+  const about = content.about;
   const pillars = [
     {
       icon: Cpu,
@@ -70,10 +73,14 @@ export const AboutSection: React.FC = () => {
             viewport={{ once: true }}
             className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-display mb-6"
           >
-            Meet{' '}
-            <span className="text-gradient-kivo">
-              KIVO.
-            </span>
+            {about?.heading || (
+              <>
+                Meet{' '}
+                <span className="text-gradient-kivo">
+                  KIVO.
+                </span>
+              </>
+            )}
           </motion.h2>
 
           <motion.p
@@ -82,7 +89,7 @@ export const AboutSection: React.FC = () => {
             viewport={{ once: true }}
             className="text-base sm:text-xl text-slate-300 leading-relaxed font-normal max-w-2xl mx-auto"
           >
-            KIVO is built around a simple idea: browsing should be fast, private, beautiful, and yours to customize.
+            {about?.missionText || 'KIVO is built around a simple idea: browsing should be fast, private, beautiful, and yours to customize.'}
           </motion.p>
         </div>
 
@@ -111,7 +118,7 @@ export const AboutSection: React.FC = () => {
               Browse Freely.
             </p>
             <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
-              Designed with precision for modern desktops across Windows and macOS.
+              Designed with precision for modern desktops across Windows, macOS and mobile devices.
             </p>
           </motion.div>
 
@@ -124,19 +131,19 @@ export const AboutSection: React.FC = () => {
           >
             <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
               <h4 className="text-base sm:text-lg font-bold text-white mb-2 font-display">
-                Reclaiming the Modern Web
+                {about?.missionTitle || 'Reclaiming the Modern Web'}
               </h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                For years, desktop browsers have grown heavier, cluttered with unwanted news feeds, shopping popups, and aggressive advertising trackers that slow down your computer and track your habits across websites.
+                {about?.paragraph1 || 'For years, desktop browsers have grown heavier, cluttered with unwanted news feeds, shopping popups, and aggressive advertising trackers that slow down your computer and track your habits across websites.'}
               </p>
             </div>
 
             <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
               <h4 className="text-base sm:text-lg font-bold text-white mb-2 font-display">
-                Purely Desktop First
+                {about?.visionTitle || 'Purely Desktop First'}
               </h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                KIVO reimagines the browser as a calm, sovereign sanctuary. We strip away the unnecessary noise and give you genuine speed, uncompromising privacy, and a gorgeous user interface that you can truly make your own.
+                {about?.paragraph2 || 'KIVO reimagines the browser as a calm, sovereign sanctuary. We strip away the unnecessary noise and give you genuine speed, uncompromising privacy, and a gorgeous user interface that you can truly make your own.'}
               </p>
             </div>
           </motion.div>

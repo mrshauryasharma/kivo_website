@@ -158,7 +158,7 @@ function runStorageMigration() {
     if (fs.existsSync(LEGACY_UPLOADS_DIR) && LEGACY_UPLOADS_DIR !== UPLOADS_DIR) {
       const files = fs.readdirSync(LEGACY_UPLOADS_DIR);
       for (const file of files) {
-        if (file.endsWith('.exe') || file.endsWith('.dmg')) {
+        if (file.endsWith('.exe') || file.endsWith('.dmg') || file.endsWith('.apk')) {
           const src = path.join(LEGACY_UPLOADS_DIR, file);
           const dest = path.join(UPLOADS_DIR, file);
           if (!fs.existsSync(dest)) {
@@ -350,8 +350,8 @@ export function validateFileMagicBytes(buffer, ext) {
   if (lowerExt === '.gif') {
     return buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38;
   }
-  // ZIP (also docx): PK.. (50 4B 03 04 or 50 4B 05 06)
-  if (lowerExt === '.zip' || lowerExt === '.docx') {
+  // ZIP (also docx and android APK): PK.. (50 4B 03 04 or 50 4B 05 06)
+  if (lowerExt === '.zip' || lowerExt === '.apk' || lowerExt === '.docx') {
     return buffer[0] === 0x50 && buffer[1] === 0x4B;
   }
 
@@ -360,6 +360,13 @@ export function validateFileMagicBytes(buffer, ext) {
 }
 
 export const PLATFORM_RULES = {
+  android: {
+    name: 'Android Mobile',
+    architecture: 'Universal APK (ARM64 / v7a / x86_64)',
+    allowedExtensions: ['.apk'],
+    defaultFileName: 'KivoBrowser.apk',
+    mimeType: 'application/vnd.android.package-archive',
+  },
   windows: {
     name: 'Windows Desktop',
     architecture: '64-bit (x64)',

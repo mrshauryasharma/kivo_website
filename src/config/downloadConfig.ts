@@ -9,7 +9,7 @@
 
 export interface PlatformDownloadConfig {
   name: string;
-  platform: 'windows' | 'macos';
+  platform: 'android' | 'windows' | 'macos';
   osTarget: string;
   architecture: string;
   installerFormat: string;
@@ -24,6 +24,7 @@ export interface KivoReleaseConfig {
   latestVersion: string;
   releaseDate: string;
   channel: 'Stable' | 'Beta' | 'Preview';
+  android: PlatformDownloadConfig;
   windows: PlatformDownloadConfig;
   macos: PlatformDownloadConfig;
 }
@@ -32,6 +33,19 @@ export const DOWNLOAD_CONFIG: KivoReleaseConfig = {
   latestVersion: '1.0.0-preview',
   releaseDate: 'November 2026',
   channel: 'Preview',
+  android: {
+    name: 'KIVO for Android',
+    platform: 'android',
+    osTarget: 'Android 10.0+ (Q or later)',
+    architecture: 'Universal (ARM64 / v7a / x86_64)',
+    installerFormat: '.apk package',
+    version: '1.0.0-preview',
+    releaseDate: 'Q4 2026',
+    // Set to null or a valid direct URL once production APK is published
+    downloadUrl: null,
+    fileSize: '~58 MB',
+    minRequirements: 'Android 10+, 3 GB RAM, 200 MB free storage',
+  },
   windows: {
     name: 'KIVO for Windows',
     platform: 'windows',

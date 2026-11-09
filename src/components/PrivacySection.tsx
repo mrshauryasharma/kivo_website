@@ -10,8 +10,11 @@ import {
   Activity,
   Layers,
 } from 'lucide-react';
+import { useCms } from '../context/CmsContext';
 
 export const PrivacySection: React.FC = () => {
+  const { content } = useCms();
+  const privacy = content.privacy;
   const [shieldActive, setShieldActive] = useState<boolean>(true);
 
   const trackerExamples = [
@@ -46,10 +49,14 @@ export const PrivacySection: React.FC = () => {
             viewport={{ once: true }}
             className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-display mb-6"
           >
-            Your Privacy.{' '}
-            <span className="text-gradient-cyan-purple">
-              Your Control.
-            </span>
+            {privacy?.sectionTitle || (
+              <>
+                Your Privacy.{' '}
+                <span className="text-gradient-cyan-purple">
+                  Your Control.
+                </span>
+              </>
+            )}
           </motion.h2>
 
           <motion.p
@@ -58,7 +65,8 @@ export const PrivacySection: React.FC = () => {
             viewport={{ once: true }}
             className="text-base sm:text-lg text-slate-400 leading-relaxed font-normal"
           >
-            Your browsing experience should belong to you. KIVO is designed with privacy and control at its core.
+            {privacy?.sectionSubtitle ||
+              'Your browsing experience should belong to you. KIVO is designed with privacy and control at its core.'}
           </motion.p>
         </div>
 
