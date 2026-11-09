@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   PLATFORM_RULES,
   UPLOADS_DIR,
+  ARCHIVE_DIR,
   resolveInstallerFilePath,
   INSTALLER_RETENTION_POLICY,
 } from './config.js';
@@ -10,7 +11,7 @@ import {
   getStoredMetadata,
   saveStoredMetadata,
 } from './db.js';
-import { deleteInstallerMetadataFromMysql } from './mysql.js';
+import { deleteInstallerMetadataFromMysql, incrementDownloadCountInMysql } from './mysql.js';
 
 // Load metadata from persistent database
 export function getMetadata() {
@@ -48,7 +49,7 @@ export function getInstaller(platform) {
 // Note: Desktop installer binaries are permanently retained on disk.
 // There is zero automatic deletion, TTL, cron, or timer on completed installers.
 // Manual removal through this function by an authorized administrator is the ONLY deletion mechanism.
-export function deleteInstaller(platform) {
+export async function deleteInstaller(platform, adminUser = 'admin') {
   if (!PLATFORM_RULES[platform]) {
     throw new Error(`Invalid platform: ${platform}`);
   }
@@ -58,6 +59,16 @@ export function deleteInstaller(platform) {
 
   if (current && current.filePath && fs.existsSync(current.filePath)) {
     try {
+      // Archive before removal as an audit safety measure
+      if (!fs.existsSync(ARCHIVE_DIR)) {
+        fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
+      }
+      const ext = path.extname(current.filePath);
+      const archivedCopy = path.join(ARCHIVE_DIR, `${platform}-deleted-${Date.now()}${ext}`);
+      try {
+        fs.copyFileSync(current.filePath, archivedCopy);
+      } catch {}
+
       fs.unlinkSync(current.filePath);
     } catch (err) {
       console.warn(`[KIVO Storage] Failed to delete file ${current.filePath}:`, err);
@@ -76,7 +87,7 @@ export function deleteInstaller(platform) {
 
   metadata[platform] = null;
   saveMetadata(metadata);
-  deleteInstallerMetadataFromMysql(platform).catch(() => {});
+  await deleteInstallerMetadataFromMysql(platform, adminUser);
   return true;
 }
 
@@ -91,6 +102,9 @@ export function handleDownloadStream(req, res, platform) {
   if (!installer || !installer.filePath || !fs.existsSync(installer.filePath)) {
     return res.status(404).send('Installer binary is currently unavailable for this platform.');
   }
+
+  // Record download count in MySQL
+  incrementDownloadCountInMysql(platform).catch(() => {});
 
   const stat = fs.statSync(installer.filePath);
   const fileSize = stat.size;

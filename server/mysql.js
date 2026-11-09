@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import crypto from 'node:crypto';
 import { getMysqlConfig } from './config.js';
 
 let pool = null;
@@ -50,9 +51,10 @@ export async function createTablesIfNotExist() {
   if (!pool) return;
 
   const ddlStatements = [
-    // 1. Installers Metadata
+    // 1. Installers Metadata (Permanent Dual-Layer Architecture)
     `CREATE TABLE IF NOT EXISTS kivo_installers_metadata (
       platform VARCHAR(32) PRIMARY KEY,
+      id VARCHAR(64) DEFAULT NULL,
       name VARCHAR(128) NOT NULL,
       architecture VARCHAR(64) NOT NULL,
       filename VARCHAR(255) NOT NULL,
@@ -62,7 +64,32 @@ export async function createTablesIfNotExist() {
       file_path VARCHAR(512) NOT NULL,
       download_url VARCHAR(255) NOT NULL,
       uploaded_at DATETIME NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+      retention VARCHAR(32) NOT NULL DEFAULT 'permanent',
+      download_count INT NOT NULL DEFAULT 0,
+      release_notes TEXT DEFAULT NULL,
+      audit_log LONGTEXT DEFAULT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_active_del (is_active, is_deleted)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    // 1b. Installers History & Audit Trail (Strict No-Auto-Delete and Version Archiving)
+    `CREATE TABLE IF NOT EXISTS kivo_installers_history (
+      id VARCHAR(64) PRIMARY KEY,
+      installer_id VARCHAR(64),
+      platform VARCHAR(32) NOT NULL,
+      version VARCHAR(32) NOT NULL,
+      filename VARCHAR(255) NOT NULL,
+      size_bytes BIGINT NOT NULL,
+      sha256 VARCHAR(64) NOT NULL,
+      file_path VARCHAR(512) NOT NULL,
+      action VARCHAR(32) NOT NULL,
+      admin_user VARCHAR(128) DEFAULT 'admin',
+      details LONGTEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_hist_platform (platform),
+      INDEX idx_hist_action (action)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
     // 2. CMS Content
@@ -221,6 +248,32 @@ export async function createTablesIfNotExist() {
     for (const sql of ddlStatements) {
       await pool.query(sql);
     }
+
+    // Safely check and add any missing columns in kivo_installers_metadata without altering existing data
+    try {
+      const [existingCols] = await pool.query('SHOW COLUMNS FROM kivo_installers_metadata');
+      const colNames = new Set(existingCols.map((c) => c.Field.toLowerCase()));
+
+      const columnDefs = [
+        { name: 'id', def: 'VARCHAR(64) DEFAULT NULL' },
+        { name: 'release_notes', def: 'TEXT DEFAULT NULL' },
+        { name: 'is_active', def: 'TINYINT(1) NOT NULL DEFAULT 1' },
+        { name: 'is_deleted', def: 'TINYINT(1) NOT NULL DEFAULT 0' },
+        { name: 'retention', def: "VARCHAR(32) NOT NULL DEFAULT 'permanent'" },
+        { name: 'download_count', def: 'INT NOT NULL DEFAULT 0' },
+        { name: 'audit_log', def: 'LONGTEXT DEFAULT NULL' },
+      ];
+
+      for (const col of columnDefs) {
+        if (!colNames.has(col.name.toLowerCase())) {
+          await pool.query(`ALTER TABLE kivo_installers_metadata ADD COLUMN ${col.name} ${col.def}`);
+          console.log(`[KIVO MySQL] Added missing column ${col.name} to kivo_installers_metadata`);
+        }
+      }
+    } catch (colErr) {
+      console.warn('[KIVO MySQL] Column migration check notice:', colErr.message);
+    }
+
     console.log('[KIVO MySQL] All database tables verified and ready.');
   } catch (err) {
     console.error('[KIVO MySQL] DDL Error:', err.message);
@@ -268,36 +321,75 @@ export async function checkMysqlHealth() {
 }
 
 // -------------------------------------------------------------
-// Installer Metadata MySQL Synchronization Helpers
+// Installer Metadata MySQL Synchronization Helpers (Dual-Layer Layer B)
 // -------------------------------------------------------------
-export async function syncInstallerMetadataToMysql(meta) {
+export async function syncInstallerMetadataToMysql(meta, auditAction = 'SYNC', adminUser = 'system') {
   try {
     const currentPool = await getMysqlPool();
     if (!currentPool || !meta || typeof meta !== 'object') return;
 
     for (const [platform, item] of Object.entries(meta)) {
       if (!item || typeof item !== 'object') continue;
+
+      const installerId = item.id || crypto.randomUUID();
+      const isActive = item.isDeleted ? 0 : 1;
+      const isDeleted = item.isDeleted ? 1 : 0;
+      const retention = item.retention || 'permanent';
+
       await currentPool.query(
         `INSERT INTO kivo_installers_metadata 
-          (platform, name, architecture, filename, version, size_bytes, sha256, file_path, download_url, uploaded_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (platform, id, name, architecture, filename, version, size_bytes, sha256, file_path, download_url, uploaded_at, is_active, is_deleted, retention, release_notes, audit_log)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE 
+          id = COALESCE(kivo_installers_metadata.id, VALUES(id)),
           name = VALUES(name), architecture = VALUES(architecture), filename = VALUES(filename),
           version = VALUES(version), size_bytes = VALUES(size_bytes), sha256 = VALUES(sha256),
-          file_path = VALUES(file_path), download_url = VALUES(download_url), uploaded_at = VALUES(uploaded_at)`,
+          file_path = VALUES(file_path), download_url = VALUES(download_url), uploaded_at = VALUES(uploaded_at),
+          is_active = VALUES(is_active), is_deleted = VALUES(is_deleted), retention = VALUES(retention),
+          release_notes = VALUES(release_notes), audit_log = VALUES(audit_log)`,
         [
           platform,
+          installerId,
           item.name || platform,
-          item.architecture || 'x64',
+          item.architecture || 'Universal',
           item.filename || 'installer',
           item.version || '1.0.0',
           item.size || 0,
           item.sha256 || '',
           item.filePath || '',
-          item.downloadUrl || '',
+          item.downloadUrl || `/api/download/${platform}`,
           new Date(item.uploadedAt || Date.now()),
+          isActive,
+          isDeleted,
+          retention,
+          item.releaseNotes || null,
+          JSON.stringify(item.auditLog || [{ action: auditAction, user: adminUser, timestamp: new Date().toISOString() }]),
         ]
       );
+
+      // Append to audit history table
+      try {
+        await currentPool.query(
+          `INSERT INTO kivo_installers_history 
+            (id, installer_id, platform, version, filename, size_bytes, sha256, file_path, action, admin_user, details)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            crypto.randomUUID(),
+            installerId,
+            platform,
+            item.version || '1.0.0',
+            item.filename || 'installer',
+            item.size || 0,
+            item.sha256 || '',
+            item.filePath || '',
+            auditAction,
+            adminUser,
+            JSON.stringify({ retention, uploadedAt: item.uploadedAt, manualAdminAction: adminUser !== 'system' }),
+          ]
+        );
+      } catch (histErr) {
+        // Non-critical audit history insert
+      }
     }
   } catch (err) {
     console.warn('[KIVO MySQL] Error syncing installer metadata:', err.message);
@@ -309,12 +401,16 @@ export async function loadInstallerMetadataFromMysql() {
     const currentPool = await getMysqlPool();
     if (!currentPool) return null;
 
-    const [rows] = await currentPool.query('SELECT * FROM kivo_installers_metadata');
+    const [rows] = await currentPool.query(
+      'SELECT * FROM kivo_installers_metadata WHERE is_deleted = 0'
+    );
     if (!rows || rows.length === 0) return null;
 
     const result = {};
     for (const row of rows) {
       result[row.platform] = {
+        id: row.id,
+        platform: row.platform,
         name: row.name,
         architecture: row.architecture,
         filename: row.filename,
@@ -323,10 +419,14 @@ export async function loadInstallerMetadataFromMysql() {
         sha256: row.sha256,
         filePath: row.file_path,
         downloadUrl: row.download_url,
+        downloadCount: Number(row.download_count || 0),
         uploadedAt: new Date(row.uploaded_at).toISOString(),
-        retention: 'permanent',
+        isActive: Boolean(row.is_active),
+        isDeleted: Boolean(row.is_deleted),
+        retention: row.retention || 'permanent',
         retentionPolicy: 'indefinite_until_manual_removal',
         autoDelete: false,
+        releaseNotes: row.release_notes || null,
       };
     }
     return result;
@@ -336,14 +436,56 @@ export async function loadInstallerMetadataFromMysql() {
   }
 }
 
-export async function deleteInstallerMetadataFromMysql(platform) {
+export async function deleteInstallerMetadataFromMysql(platform, adminUser = 'admin') {
   try {
     const currentPool = await getMysqlPool();
     if (!currentPool) return;
-    await currentPool.query('DELETE FROM kivo_installers_metadata WHERE platform = ?', [platform]);
+
+    // Fetch existing row for audit log before soft-deleting
+    const [rows] = await currentPool.query('SELECT * FROM kivo_installers_metadata WHERE platform = ?', [platform]);
+    const existing = rows[0];
+
+    // Soft delete: keep record with is_deleted = 1, is_active = 0
+    await currentPool.query(
+      'UPDATE kivo_installers_metadata SET is_deleted = 1, is_active = 0 WHERE platform = ?',
+      [platform]
+    );
+
+    // Record audit history
+    if (existing) {
+      await currentPool.query(
+        `INSERT INTO kivo_installers_history 
+          (id, installer_id, platform, version, filename, size_bytes, sha256, file_path, action, admin_user, details)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          crypto.randomUUID(),
+          existing.id,
+          platform,
+          existing.version,
+          existing.filename,
+          Number(existing.size_bytes),
+          existing.sha256,
+          existing.file_path,
+          'MANUAL_DELETE',
+          adminUser,
+          JSON.stringify({ manualAdminDeletion: true, timestamp: new Date().toISOString() }),
+        ]
+      );
+    }
   } catch (err) {
     console.warn('[KIVO MySQL] Error deleting installer metadata from MySQL:', err.message);
   }
+}
+
+export async function incrementDownloadCountInMysql(platform) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return;
+    await currentPool.query(
+      'UPDATE kivo_installers_metadata SET download_count = download_count + 1 WHERE platform = ?',
+      [platform]
+    );
+  } catch {}
 }
 
 export async function deleteTicketFromMysql(ticketId) {

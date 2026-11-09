@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import {
   UPLOADS_DIR,
+  ARCHIVE_DIR,
   CHUNKS_DIR,
   MAX_FILE_SIZE,
   DEFAULT_CHUNK_SIZE,
   PLATFORM_RULES,
 } from './config.js';
 import { getMetadata, saveMetadata } from './installers.js';
+import { syncInstallerMetadataToMysql } from './mysql.js';
 import { assertStorageAvailable } from './storageMonitor.js';
 
 // Active upload sessions stored in memory: Map<uploadId, UploadSession>
@@ -199,38 +201,55 @@ export async function completeUpload(uploadId) {
 
   const sha256 = hash.digest('hex');
 
-  // ATOMIC REPLACEMENT: Never delete existing working binary before new binary is verified
-  let hasBackup = false;
+  // ATOMIC REPLACEMENT & VERSION ARCHIVING:
+  // Existing binaries are archived in ARCHIVE_DIR for rollback safety. Never auto-deleted.
+  const currentMeta = getMetadata()[session.platform];
+  let archivedOldPath = null;
+  let hasOld = false;
+
   try {
-    if (fs.existsSync(targetFilePath)) {
-      fs.renameSync(targetFilePath, backupFilePath);
-      hasBackup = true;
+    if (!fs.existsSync(ARCHIVE_DIR)) {
+      fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
     }
+
+    if (fs.existsSync(targetFilePath)) {
+      const oldVersion = currentMeta?.version || 'prev';
+      archivedOldPath = path.join(ARCHIVE_DIR, `${session.platform}-v${oldVersion}-${Date.now()}${targetExt}`);
+      fs.copyFileSync(targetFilePath, archivedOldPath);
+      fs.renameSync(targetFilePath, backupFilePath);
+      hasOld = true;
+    }
+
     fs.renameSync(tempTargetFilePath, targetFilePath);
 
-    // Swap successful, safely purge backup
-    if (hasBackup && fs.existsSync(backupFilePath)) {
+    // POST-WRITE READBACK VERIFICATION
+    const verifyBuf = fs.readFileSync(targetFilePath);
+    const verifyHash = crypto.createHash('sha256').update(verifyBuf).digest('hex');
+    if (verifyHash !== sha256) {
+      throw new Error(`Integrity verification failed on disk readback. Computed: ${sha256}, Read: ${verifyHash}`);
+    }
+
+    // Clean up temporary backup since target is verified (permanent archive copy is retained in ARCHIVE_DIR)
+    if (hasOld && fs.existsSync(backupFilePath)) {
       try {
         fs.unlinkSync(backupFilePath);
-      } catch {
-        // Non-critical
-      }
+      } catch {}
     }
   } catch (swapErr) {
-    // If swap failed and backup exists, restore backup immediately!
-    if (hasBackup && fs.existsSync(backupFilePath) && !fs.existsSync(targetFilePath)) {
+    // If swap or verification failed, restore backup immediately
+    if (hasOld && fs.existsSync(backupFilePath) && !fs.existsSync(targetFilePath)) {
       try {
         fs.renameSync(backupFilePath, targetFilePath);
-      } catch {
-        // Ignore
-      }
+      } catch {}
     }
-    throw new Error(`Failed to atomically replace installer: ${swapErr.message}`);
+    throw new Error(`Failed to atomically install verified binary: ${swapErr.message}`);
   }
 
-  // Update metadata file with permanent retention guarantees
+  // Update metadata with permanent retention guarantees and UUID
+  const installerId = crypto.randomUUID();
   const metadata = getMetadata();
-  metadata[session.platform] = {
+  const installerRecord = {
+    id: installerId,
     platform: session.platform,
     name: rule.name,
     architecture: rule.architecture,
@@ -244,8 +263,17 @@ export async function completeUpload(uploadId) {
     retention: 'permanent',
     retentionPolicy: 'indefinite_until_manual_removal',
     autoDelete: false,
+    isActive: true,
+    isDeleted: false,
+    status: 'verified',
+    archivedPreviousVersion: archivedOldPath || null,
   };
+
+  metadata[session.platform] = installerRecord;
   saveMetadata(metadata);
+
+  // Sync to MySQL Layer B with audit log
+  await syncInstallerMetadataToMysql(metadata, 'UPLOAD', 'admin');
 
   // Clean up chunk files and active session
   try {
@@ -255,7 +283,7 @@ export async function completeUpload(uploadId) {
   }
   activeUploads.delete(uploadId);
 
-  return metadata[session.platform];
+  return installerRecord;
 }
 
 // Cancel and delete an in-progress upload

@@ -12,39 +12,85 @@ export const APP_ROOT = path.resolve(__dirname, '..');
 // Production Base URL (configured via environment variable, no hardcoded temporary preview URL)
 export const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://kivobrowser.com').replace(/\/+$/, '');
 
+// Helper to verify directory is writable
+function isWritableDir(dirPath) {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const testFile = path.join(dirPath, `.write_test_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+    fs.writeFileSync(testFile, 'kivo_storage_test');
+    fs.unlinkSync(testFile);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Helper to determine best persistent storage root
+// CRITICAL FIX: Ensures persistent storage resides in a truly permanent directory
+// OUTSIDE the git/deployment directory so binaries survive container restarts,
+// git imports, and fresh GoDaddy redeployments.
 function resolvePersistentBaseDir() {
-  if (process.env.KIVO_STORAGE_PATH) {
-    return path.resolve(process.env.KIVO_STORAGE_PATH);
+  const candidates = [];
+
+  // 1. Explicitly configured persistent storage environment variables
+  if (process.env.KIVO_STORAGE_PATH && process.env.KIVO_STORAGE_PATH.trim()) {
+    candidates.push(path.resolve(process.env.KIVO_STORAGE_PATH.trim()));
   }
-  if (process.env.PERSISTENT_STORAGE_DIR) {
-    return path.resolve(process.env.PERSISTENT_STORAGE_DIR);
+  if (process.env.PERSISTENT_STORAGE_DIR && process.env.PERSISTENT_STORAGE_DIR.trim()) {
+    candidates.push(path.resolve(process.env.PERSISTENT_STORAGE_DIR.trim()));
   }
-  if (process.env.GODADDY_STORAGE_DIR) {
-    return path.resolve(process.env.GODADDY_STORAGE_DIR);
+  if (process.env.GODADDY_STORAGE_DIR && process.env.GODADDY_STORAGE_DIR.trim()) {
+    candidates.push(path.resolve(process.env.GODADDY_STORAGE_DIR.trim()));
   }
-  // If user HOME exists and is outside ephemeral deployment root (common on Linux/cPanel)
-  if (process.env.HOME && fs.existsSync(process.env.HOME) && !APP_ROOT.startsWith(process.env.HOME)) {
-    const homeStorage = path.join(process.env.HOME, 'kivo_persistent_storage');
-    try {
-      if (!fs.existsSync(homeStorage)) {
-        fs.mkdirSync(homeStorage, { recursive: true });
-      }
-      return homeStorage;
-    } catch {
-      // Fallback if not writable
+
+  // 2. User HOME directory: In cPanel / GoDaddy / Linux hosting, HOME is /home/username.
+  // /home/username/kivo_persistent_storage is completely OUTSIDE the git repo directory,
+  // so it survives all git pulls, branch switches, and container redeployments.
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  if (homeDir && typeof homeDir === 'string' && homeDir.trim()) {
+    candidates.push(path.join(homeDir.trim(), 'kivo_persistent_storage'));
+    candidates.push(path.join(homeDir.trim(), '.kivo_storage'));
+  }
+
+  // 3. Parent directory outside APP_ROOT (e.g. ../kivo_persistent_storage)
+  try {
+    const parent = path.resolve(APP_ROOT, '..');
+    if (parent && parent !== APP_ROOT && path.dirname(parent) !== parent) {
+      candidates.push(path.join(parent, 'kivo_persistent_storage'));
+    }
+  } catch {}
+
+  // 4. Common persistent storage mount points on cloud Linux hosts
+  if (process.platform !== 'win32') {
+    candidates.push('/var/kivo_storage');
+    candidates.push('/data/kivo_storage');
+    candidates.push('/mnt/storage/kivo');
+  }
+
+  // 5. Fallback within public/assets only if outside paths cannot be created
+  candidates.push(path.join(APP_ROOT, 'public', 'assets', 'persistent_storage'));
+  candidates.push(path.join(APP_ROOT, 'public', 'assets'));
+
+  for (const dir of candidates) {
+    if (isWritableDir(dir)) {
+      return dir;
     }
   }
-  // GoDaddy documented persistent public/assets or storage fallback
+
   return path.join(APP_ROOT, 'public', 'assets');
 }
 
-const PERSISTENT_BASE = resolvePersistentBaseDir();
+export const PERSISTENT_BASE = resolvePersistentBaseDir();
 
 // Persistent storage directory for installer binaries
 export const UPLOADS_DIR = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
   : path.join(PERSISTENT_BASE, 'installers');
+
+// Permanent archive directory for previous installer versions (rollback support, never auto-deleted)
+export const ARCHIVE_DIR = path.join(UPLOADS_DIR, 'archive');
 
 // Directory for temporary upload chunks
 export const CHUNKS_DIR = process.env.CHUNKS_DIR
@@ -80,21 +126,28 @@ export const INSTALLER_RETENTION_POLICY = {
   autoDelete: false,
   ttlHours: null,
   description:
-    'Desktop installer binaries are permanently retained in storage and will never be automatically deleted by any system TTL, cron, or interval. Only explicit manual deletion by an administrator is permitted.',
+    'Desktop installer binaries are permanently retained in persistent storage and will never be automatically deleted by any system TTL, cron, or interval. Only explicit manual deletion by an authorized administrator is permitted.',
 };
 
 // Candidate persistent storage roots where installer binaries may reside
 export function getCandidateStorageDirs() {
   const dirs = [
     UPLOADS_DIR,
+    path.join(PERSISTENT_BASE, 'installers'),
     LEGACY_UPLOADS_DIR,
     path.join(APP_ROOT, 'public', 'assets', 'installers'),
     path.join(APP_ROOT, 'storage', 'installers'),
+    path.join(APP_ROOT, 'public', 'assets'),
   ];
-  if (process.env.HOME) {
-    dirs.push(path.join(process.env.HOME, 'kivo_persistent_storage', 'installers'));
-    dirs.push(path.join(process.env.HOME, 'public_html', 'assets', 'installers'));
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  if (homeDir) {
+    dirs.push(path.join(homeDir, 'kivo_persistent_storage', 'installers'));
+    dirs.push(path.join(homeDir, 'public_html', 'assets', 'installers'));
   }
+  try {
+    const parent = path.resolve(APP_ROOT, '..');
+    dirs.push(path.join(parent, 'kivo_persistent_storage', 'installers'));
+  } catch {}
   return [...new Set(dirs.filter(Boolean))];
 }
 
@@ -126,6 +179,16 @@ export function resolveInstallerFilePath(platform, filename, preferredPath) {
         if (fs.existsSync(candidatePath)) {
           const stat = fs.statSync(candidatePath);
           if (stat.isFile() && stat.size > 0) {
+            // Auto-relocate to primary UPLOADS_DIR if found in a legacy or candidate directory
+            const destPath = path.join(UPLOADS_DIR, `${platform}${ext}`);
+            if (candidatePath !== destPath && !fs.existsSync(destPath)) {
+              try {
+                fs.copyFileSync(candidatePath, destPath);
+                return destPath;
+              } catch {
+                return candidatePath;
+              }
+            }
             return candidatePath;
           }
         }
@@ -137,7 +200,7 @@ export function resolveInstallerFilePath(platform, filename, preferredPath) {
 }
 
 // Ensure all persistent directories exist
-for (const dir of [UPLOADS_DIR, CHUNKS_DIR, DATA_DIR, ATTACHMENTS_DIR]) {
+for (const dir of [UPLOADS_DIR, ARCHIVE_DIR, CHUNKS_DIR, DATA_DIR, ATTACHMENTS_DIR]) {
   try {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -155,16 +218,23 @@ function runStorageMigration() {
       fs.copyFileSync(LEGACY_METADATA_FILE, METADATA_FILE);
     }
 
-    if (fs.existsSync(LEGACY_UPLOADS_DIR) && LEGACY_UPLOADS_DIR !== UPLOADS_DIR) {
-      const files = fs.readdirSync(LEGACY_UPLOADS_DIR);
-      for (const file of files) {
-        if (file.endsWith('.exe') || file.endsWith('.dmg') || file.endsWith('.apk')) {
-          const src = path.join(LEGACY_UPLOADS_DIR, file);
-          const dest = path.join(UPLOADS_DIR, file);
-          if (!fs.existsSync(dest)) {
-            console.log(`[KIVO Storage] Migrating legacy installer ${file} to ${dest}`);
-            fs.copyFileSync(src, dest);
+    const candidateDirs = getCandidateStorageDirs().filter((d) => d !== UPLOADS_DIR && !d.includes('archive'));
+    for (const legacyDir of candidateDirs) {
+      if (fs.existsSync(legacyDir)) {
+        try {
+          const files = fs.readdirSync(legacyDir);
+          for (const file of files) {
+            if (file.endsWith('.exe') || file.endsWith('.dmg') || file.endsWith('.apk')) {
+              const src = path.join(legacyDir, file);
+              const dest = path.join(UPLOADS_DIR, file);
+              if (!fs.existsSync(dest)) {
+                console.log(`[KIVO Storage] Migrating legacy installer ${file} from ${legacyDir} to ${dest}`);
+                fs.copyFileSync(src, dest);
+              }
+            }
           }
+        } catch {
+          // Skip inaccessible dir
         }
       }
     }

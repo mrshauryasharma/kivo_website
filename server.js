@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import cookieParser from 'cookie-parser';
 
 import {
@@ -83,6 +84,7 @@ import {
   saveStoredReleases,
   getSystemAnalytics,
   findUserById,
+  reconcileInstallers,
 } from './server/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -164,7 +166,19 @@ app.get('/api/downloads/status', (req, res) => {
     const publicStatus = {};
     for (const [key, rule] of Object.entries(PLATFORM_RULES)) {
       const item = meta[key];
-      if (item && item.filePath && fs.existsSync(item.filePath)) {
+      const hasFile = Boolean(item && item.filePath && fs.existsSync(item.filePath));
+      let isVerified = false;
+      if (hasFile) {
+        try {
+          const buf = fs.readFileSync(item.filePath);
+          const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+          isVerified = Boolean(actualSha === item.sha256);
+        } catch {
+          isVerified = false;
+        }
+      }
+
+      if (isVerified) {
         publicStatus[key] = {
           available: true,
           platform: item.platform,
@@ -289,11 +303,12 @@ app.get('/api/auth/me', (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/admin/installers', requireAdminAuth, async (req, res) => {
   try {
-    const meta = getMetadata();
+    const { current: meta, report } = await reconcileInstallers(false);
     const storageMetrics = getStorageMetrics();
     const dbHealth = await checkMysqlHealth();
     res.status(200).json({
       installers: meta,
+      reconciliation: report,
       uploadsDir: UPLOADS_DIR,
       dataDir: DATA_DIR,
       maxFileSize: MAX_FILE_SIZE,
@@ -305,6 +320,21 @@ app.get('/api/admin/installers', requireAdminAuth, async (req, res) => {
   } catch (err) {
     console.error('[KIVO API] Error listing installers:', err);
     res.status(500).json({ error: 'Failed to retrieve installer metadata.' });
+  }
+});
+
+// Explicit deep reconciliation trigger for admin
+app.post('/api/admin/installers/reconcile', requireAdminAuth, async (req, res) => {
+  try {
+    const { current: meta, report } = await reconcileInstallers(true);
+    res.status(200).json({
+      success: true,
+      installers: meta,
+      report,
+    });
+  } catch (err) {
+    console.error('[KIVO API] Error reconciling installers:', err);
+    res.status(500).json({ error: 'Reconciliation failed: ' + err.message });
   }
 });
 
@@ -343,7 +373,8 @@ app.post('/api/admin/upload/chunk', requireAdminAuth, (req, res) => {
 app.post('/api/admin/upload/complete', requireAdminAuth, async (req, res) => {
   try {
     const uploadId = validateUploadId(req.body?.uploadId);
-    const completedMetadata = await completeUpload(uploadId);
+    const session = getSession(req);
+    const completedMetadata = await completeUpload(uploadId, session?.username || 'admin');
     res.status(200).json({
       success: true,
       metadata: completedMetadata,
@@ -364,13 +395,14 @@ app.post('/api/admin/upload/cancel', requireAdminAuth, (req, res) => {
   }
 });
 
-app.delete('/api/admin/installers/:platform', requireAdminAuth, (req, res) => {
+app.delete('/api/admin/installers/:platform', requireAdminAuth, async (req, res) => {
   try {
     const { platform } = req.params;
     if (!PLATFORM_RULES[platform]) {
       return res.status(400).json({ error: 'Invalid platform parameter.' });
     }
-    deleteInstaller(platform);
+    const session = getSession(req);
+    await deleteInstaller(platform, session?.username || 'admin');
     res.status(200).json({ success: true, message: `Installer for ${platform} deleted.` });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -647,7 +679,17 @@ app.listen(PORT, HOST, () => {
   console.log(`[KIVO Web Server] Database data path: ${DATA_DIR}`);
   console.log(`[KIVO Web Server] Attachments storage path: ${ATTACHMENTS_DIR}`);
   logSafeAuthDiagnostics();
-  getMysqlPool().catch((err) => {
-    console.warn('[KIVO Web Server] MySQL initialization notice:', err.message);
-  });
+  getMysqlPool()
+    .then(async () => {
+      try {
+        const { report } = await reconcileInstallers(false);
+        console.log(`[KIVO Storage] Boot reconciliation: ${report.totalVerified} verified, ${report.totalMissing} missing, ${report.totalCorrupted} corrupted.`);
+        console.log(`[KIVO Storage] Storage root: ${UPLOADS_DIR}`);
+      } catch (recErr) {
+        console.warn('[KIVO Storage] Boot reconciliation notice:', recErr.message);
+      }
+    })
+    .catch((err) => {
+      console.warn('[KIVO Web Server] MySQL initialization notice:', err.message);
+    });
 });

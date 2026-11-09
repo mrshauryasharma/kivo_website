@@ -28,6 +28,8 @@ export interface InstallerMetadata {
   retention?: string;
   retentionPolicy?: string;
   autoDelete?: boolean;
+  status?: string;
+  available?: boolean;
 }
 
 interface AdminInstallersTabProps {
@@ -86,6 +88,35 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
 
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [deletingPlatform, setDeletingPlatform] = useState<string | null>(null);
+  const [reconciling, setReconciling] = useState(false);
+
+  const handleReconcileStorage = async () => {
+    setReconciling(true);
+    try {
+      const res = await fetch('/api/admin/installers/reconcile', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(
+          `Dual-Layer Storage Reconciliation Complete!\n\n` +
+          `• Verified Binaries: ${data.report?.totalVerified || 0}\n` +
+          `• Missing Binaries: ${data.report?.totalMissing || 0}\n` +
+          `• Corrupted Checksums: ${data.report?.totalCorrupted || 0}\n` +
+          `• MySQL Database: ${data.report?.mysqlConnected ? 'Connected & Synced' : 'Offline'}\n` +
+          `• Persistent Storage Root: ${data.report?.uploadsDir || 'Default'}`
+        );
+        onRefresh();
+      } else {
+        alert(data.error || 'Failed to reconcile storage.');
+      }
+    } catch {
+      alert('Network error while reconciling storage.');
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const platformsList = [
     {
@@ -407,29 +438,54 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
         </div>
       </div>
 
-      {/* Section Heading */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white font-display">
-            Desktop Installer Management
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Upload, verify, update, or remove the official binaries distributed to website visitors.
-          </p>
+      {/* Section Heading & Persistent Storage Banner */}
+      <div className="mb-6 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-kivo-cyan/15 text-kivo-cyan flex items-center justify-center">
+            <HardDrive className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-semibold">
+              Permanent Storage Directory (Layer A)
+            </span>
+            <span className="text-xs font-mono text-slate-200">
+              {serverInfo?.uploadsDir || 'Resolving persistent storage path...'}
+            </span>
+          </div>
         </div>
-
-        <button
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-xs font-medium text-slate-300 transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-kivo-cyan' : ''}`} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleReconcileStorage}
+            disabled={reconciling || isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-kivo-cyan/15 hover:bg-kivo-cyan/25 border border-kivo-cyan/30 text-xs font-semibold text-kivo-cyan transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
+            <span>{reconciling ? 'Reconciling...' : 'Reconcile Storage'}</span>
+          </button>
+          <button
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-xs font-medium text-slate-300 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-kivo-cyan' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
-      {/* 3 Installer Upload Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white font-display">
+            Desktop & Mobile Installer Management
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Permanent dual-layer storage (GoDaddy disk + MySQL). Binaries survive restarts and redeployments.
+          </p>
+        </div>
+      </div>
+
+      {/* 4 Installer Upload Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
         {platformsList.map((platform) => {
           const Icon = platform.icon;
           const current = installers[platform.id];
@@ -458,17 +514,38 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
                     </div>
                   </div>
 
-                  {current ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Live
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] font-semibold text-amber-300">
-                      <Clock className="w-3.5 h-3.5" />
-                      Missing
-                    </span>
-                  )}
+                  {(() => {
+                    if (!current) {
+                      return (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-slate-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          Not Uploaded
+                        </span>
+                      );
+                    }
+                    if (current.status === 'corrupted') {
+                      return (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-[11px] font-semibold text-rose-400">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Corrupted
+                        </span>
+                      );
+                    }
+                    if (current.status === 'missing' || current.available === false) {
+                      return (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] font-semibold text-amber-300">
+                          <Clock className="w-3.5 h-3.5" />
+                          Missing Binary
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Live & Verified
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <p className="text-xs text-slate-400 mb-5 leading-relaxed">

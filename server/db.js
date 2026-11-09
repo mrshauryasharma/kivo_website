@@ -11,8 +11,15 @@ import {
   LEGACY_METADATA_FILE,
   resolveInstallerFilePath,
   INSTALLER_RETENTION_POLICY,
+  UPLOADS_DIR,
+  ARCHIVE_DIR,
 } from './config.js';
-import { syncInstallerMetadataToMysql, deleteTicketFromMysql } from './mysql.js';
+import {
+  syncInstallerMetadataToMysql,
+  loadInstallerMetadataFromMysql,
+  deleteInstallerMetadataFromMysql,
+  deleteTicketFromMysql,
+} from './mysql.js';
 
 // -------------------------------------------------------------
 // Helper: Safe Atomic File I/O with Automatic Backups
@@ -973,9 +980,17 @@ export function verifyCustomerAccess(ticketId, identifier, otpOrToken) {
 }
 
 // -------------------------------------------------------------
-// Installer Metadata Operations (Permanent Retention Architecture)
+// Installer Metadata Operations (Permanent Dual-Layer Architecture)
 // -------------------------------------------------------------
+
+// Active in-memory cache to guarantee instantaneous lookups
+let cachedInstallersMetadata = null;
+
 export function getStoredMetadata() {
+  if (cachedInstallersMetadata) {
+    return cachedInstallersMetadata;
+  }
+
   try {
     let raw = readJsonSafely(METADATA_FILE, null);
     if (!raw && fs.existsSync(LEGACY_METADATA_FILE)) {
@@ -1025,6 +1040,7 @@ export function getStoredMetadata() {
       }
     }
 
+    cachedInstallersMetadata = parsed;
     return parsed;
   } catch (err) {
     console.error('[KIVO DB] Error reading installer metadata:', err);
@@ -1048,11 +1064,205 @@ export function saveStoredMetadata(meta) {
       }
     }
   }
+  cachedInstallersMetadata = meta;
   writeJsonAtomically(METADATA_FILE, meta);
-  // Asynchronously mirror metadata to MySQL database
-  syncInstallerMetadataToMysql(meta).catch((err) => {
+  // Mirror metadata to MySQL database
+  syncInstallerMetadataToMysql(meta, 'SAVE_METADATA', 'system').catch((err) => {
     console.warn('[KIVO DB] Notice: installer metadata mirror to MySQL skipped:', err.message);
   });
+}
+
+// Deep Reconciliation Engine: Synchronizes MySQL (Layer B) with Persistent Storage (Layer A)
+// Runs on startup, on admin panel load, and on demand via POST /api/admin/installers/reconcile.
+// Guarantees files and metadata are restored after restarts, rebuilds, and deployments.
+export async function reconcileInstallers(forceSync = false) {
+  let jsonMeta = readJsonSafely(METADATA_FILE, null);
+  if (!jsonMeta && fs.existsSync(LEGACY_METADATA_FILE)) {
+    jsonMeta = readJsonSafely(LEGACY_METADATA_FILE, null);
+  }
+  const current = jsonMeta || {
+    android: null,
+    windows: null,
+    'mac-arm64': null,
+    'mac-intel': null,
+  };
+  if (current.android === undefined) current.android = null;
+
+  // Step 1: Check MySQL Database (Layer B)
+  let mysqlMeta = null;
+  try {
+    mysqlMeta = await loadInstallerMetadataFromMysql();
+  } catch (err) {
+    console.warn('[KIVO Storage] Notice: MySQL load skipped during reconciliation:', err.message);
+  }
+
+  // If MySQL has active records, merge them into current state
+  if (mysqlMeta && typeof mysqlMeta === 'object') {
+    for (const [platform, mysqlItem] of Object.entries(mysqlMeta)) {
+      if (mysqlItem && !mysqlItem.isDeleted) {
+        if (!current[platform]) {
+          console.log(`[KIVO Storage] Recovered ${platform} metadata from MySQL database!`);
+          current[platform] = mysqlItem;
+        } else {
+          // Keep most complete record, preserving id and download count
+          current[platform].id = current[platform].id || mysqlItem.id;
+          current[platform].downloadCount = mysqlItem.downloadCount || current[platform].downloadCount || 0;
+          if (!current[platform].sha256 && mysqlItem.sha256) {
+            current[platform].sha256 = mysqlItem.sha256;
+          }
+        }
+      }
+    }
+  }
+
+  // Step 2: Physical Verification on Disk (Layer A)
+  const reconciliationReport = {
+    timestamp: new Date().toISOString(),
+    uploadsDir: UPLOADS_DIR,
+    archiveDir: ARCHIVE_DIR,
+    mysqlConnected: Boolean(mysqlMeta !== null),
+    platforms: {},
+    totalVerified: 0,
+    totalMissing: 0,
+    totalCorrupted: 0,
+  };
+
+  let needsSave = false;
+
+  for (const platform of Object.keys(PLATFORM_RULES)) {
+    const rule = PLATFORM_RULES[platform];
+    let item = current[platform];
+
+    // If no record exists, scan candidate directories for physical binaries
+    if (!item) {
+      const ext = rule.allowedExtensions[0] || '';
+      const candidatePath = resolveInstallerFilePath(platform, rule.defaultFileName);
+      if (candidatePath && fs.existsSync(candidatePath)) {
+        try {
+          const stat = fs.statSync(candidatePath);
+          if (stat.isFile() && stat.size > 0) {
+            const fileBuf = fs.readFileSync(candidatePath);
+            const sha256 = crypto.createHash('sha256').update(fileBuf).digest('hex');
+            item = {
+              id: crypto.randomUUID(),
+              platform,
+              name: rule.name,
+              architecture: rule.architecture,
+              filename: path.basename(candidatePath),
+              version: '1.0.0',
+              size: stat.size,
+              sha256,
+              filePath: candidatePath,
+              downloadUrl: `/api/download/${platform}`,
+              uploadedAt: new Date(stat.mtime).toISOString(),
+              retention: 'permanent',
+              retentionPolicy: 'indefinite_until_manual_removal',
+              autoDelete: false,
+              isActive: true,
+              isDeleted: false,
+              status: 'verified',
+            };
+            current[platform] = item;
+            needsSave = true;
+            console.log(`[KIVO Storage] Discovered unindexed physical file for ${platform} at ${candidatePath}. Re-indexed.`);
+          }
+        } catch (scanErr) {
+          console.warn(`[KIVO Storage] Error inspecting unindexed file for ${platform}:`, scanErr.message);
+        }
+      }
+    }
+
+    if (item) {
+      item.retention = 'permanent';
+      item.retentionPolicy = 'indefinite_until_manual_removal';
+      item.autoDelete = false;
+
+      // Verify physical existence
+      let physicalPath = item.filePath;
+      let fileExists = physicalPath && fs.existsSync(physicalPath);
+
+      if (!fileExists) {
+        // Try to locate across candidate persistent storage roots
+        const relocated = resolveInstallerFilePath(platform, item.filename, physicalPath);
+        if (relocated && fs.existsSync(relocated)) {
+          console.log(`[KIVO Storage] Relocated ${platform} binary from ${physicalPath} to ${relocated}`);
+          item.filePath = relocated;
+          physicalPath = relocated;
+          fileExists = true;
+          needsSave = true;
+        }
+      }
+
+      if (fileExists) {
+        try {
+          const stat = fs.statSync(physicalPath);
+          const currentSize = stat.size;
+          // Verify SHA-256 integrity
+          const fileBuf = fs.readFileSync(physicalPath);
+          const actualSha256 = crypto.createHash('sha256').update(fileBuf).digest('hex');
+
+          if (!item.sha256) {
+            item.sha256 = actualSha256;
+            item.size = currentSize;
+            needsSave = true;
+          }
+
+          if (actualSha256 === item.sha256) {
+            item.status = 'verified';
+            item.available = true;
+            reconciliationReport.totalVerified++;
+          } else {
+            console.warn(`[KIVO Storage] Checksum mismatch for ${platform}! Expected ${item.sha256}, got ${actualSha256}`);
+            item.status = 'corrupted';
+            item.available = false;
+            item.actualSha256 = actualSha256;
+            reconciliationReport.totalCorrupted++;
+          }
+        } catch (hashErr) {
+          item.status = 'error';
+          item.available = false;
+        }
+      } else {
+        // Physical file missing on disk, but DO NOT WIPE METADATA!
+        // Admin must be aware that an installer was registered but binary is absent.
+        console.warn(`[KIVO Storage] Binary for ${platform} is currently missing from disk at ${physicalPath}. Retaining metadata.`);
+        item.status = 'missing';
+        item.available = false;
+        reconciliationReport.totalMissing++;
+      }
+
+      reconciliationReport.platforms[platform] = {
+        name: item.name,
+        version: item.version,
+        status: item.status,
+        available: item.available,
+        filePath: item.filePath,
+        size: item.size,
+        sha256: item.sha256,
+      };
+    } else {
+      reconciliationReport.platforms[platform] = {
+        name: rule.name,
+        version: null,
+        status: 'not_uploaded',
+        available: false,
+        filePath: null,
+      };
+    }
+  }
+
+  // Step 3: Persist reconciled state
+  cachedInstallersMetadata = current;
+  if (needsSave || forceSync) {
+    writeJsonAtomically(METADATA_FILE, current);
+    try {
+      await syncInstallerMetadataToMysql(current, 'RECONCILE', 'reconciliation_engine');
+    } catch (syncErr) {
+      console.warn('[KIVO Storage] MySQL sync during reconciliation notice:', syncErr.message);
+    }
+  }
+
+  return { current, report: reconciliationReport };
 }
 
 
