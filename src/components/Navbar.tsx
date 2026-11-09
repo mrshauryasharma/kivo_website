@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Download } from 'lucide-react';
+import { Menu, X, Download, LifeBuoy, User } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
 import { MagneticButton } from './MagneticButton';
 
 interface NavbarProps {
   onOpenLegal?: (tab: 'privacy' | 'terms') => void;
   onOpenSupport?: () => void;
+  onNavigate?: (path: string) => void;
+  onOpenAccount?: () => void;
+  currentUser?: { name: string; email: string } | null;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  onOpenSupport,
+  onNavigate,
+  onOpenAccount,
+  currentUser,
+}) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -86,8 +94,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
             ))}
           </nav>
 
-          {/* Right: Support & Download CTA Button with Magnetic Pull */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Right: Support, Track Ticket, Updates, Account & Download CTA */}
+          <div className="hidden md:flex items-center gap-2 lg:gap-3">
+            <a
+              href="/track-ticket"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) onNavigate('/track-ticket');
+                else window.location.href = '/track-ticket';
+              }}
+              className="text-xs font-semibold text-kivo-cyan hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.06] border border-kivo-cyan/30 hover:border-kivo-cyan/60 transition-colors flex items-center gap-1.5"
+            >
+              <LifeBuoy className="w-3.5 h-3.5" />
+              <span>Track Ticket</span>
+            </a>
+
             {onOpenSupport && (
               <button
                 type="button"
@@ -97,6 +118,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 Support
               </button>
             )}
+
+            <a
+              href="/updates"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) onNavigate('/updates');
+                else window.location.href = '/updates';
+              }}
+              className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-colors"
+            >
+              Updates
+            </a>
+
+            {onOpenAccount && (
+              <button
+                type="button"
+                onClick={onOpenAccount}
+                className="text-xs font-semibold text-slate-200 hover:text-white px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 transition-colors flex items-center gap-1.5"
+              >
+                <User className="w-3.5 h-3.5 text-kivo-cyan" />
+                <span>{currentUser ? currentUser.name.split(' ')[0] : 'Sign In'}</span>
+              </button>
+            )}
+
             <MagneticButton strength={0.15}>
               <a
                 href="#download"
@@ -104,9 +149,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 className="relative group overflow-hidden rounded-full p-[1px] focus:outline-none focus-visible:ring-2 focus-visible:ring-kivo-cyan block"
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple animate-gradient-x opacity-90 group-hover:opacity-100 transition-opacity" />
-                <span className="relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-kivo-bg text-sm font-semibold text-white transition-all duration-300 group-hover:bg-opacity-0">
-                  <Download className="w-4 h-4 text-kivo-cyan group-hover:text-white transition-colors" />
-                  <span>Download KIVO</span>
+                <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-kivo-bg text-xs font-semibold text-white transition-all duration-300 group-hover:bg-opacity-0">
+                  <Download className="w-3.5 h-3.5 text-kivo-cyan group-hover:text-white transition-colors" />
+                  <span>Download</span>
                 </span>
               </a>
             </MagneticButton>
@@ -155,6 +200,45 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                   {link.name}
                 </a>
               ))}
+              <a
+                href="/track-ticket"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setMobileMenuOpen(false);
+                  if (onNavigate) onNavigate('/track-ticket');
+                  else window.location.href = '/track-ticket';
+                }}
+                className="block px-4 py-2.5 rounded-xl text-base font-medium text-kivo-cyan hover:text-white hover:bg-white/[0.06] transition-colors"
+              >
+                Track Support Ticket
+              </a>
+
+              <a
+                href="/updates"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setMobileMenuOpen(false);
+                  if (onNavigate) onNavigate('/updates');
+                  else window.location.href = '/updates';
+                }}
+                className="block px-4 py-2.5 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-white/[0.06] transition-colors"
+              >
+                Browser Updates & Notes
+              </a>
+
+              {onOpenAccount && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAccount();
+                  }}
+                  className="block w-full text-left px-4 py-2.5 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-white/[0.06] transition-colors"
+                >
+                  {currentUser ? `Account: ${currentUser.name}` : 'Sign In / Register'}
+                </button>
+              )}
+
               {onOpenSupport && (
                 <button
                   type="button"

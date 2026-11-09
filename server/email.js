@@ -443,3 +443,16 @@ KIVO Support
     text,
   });
 }
+
+
+// -------------------------------------------------------------
+// G. Customer System Notifications (Welcome, Reset, Alerts)
+// -------------------------------------------------------------
+export async function sendCustomerEmail({ to, subject, html, text }) {
+  return postResendEmail({
+    to,
+    subject,
+    html,
+    text,
+  });
+}

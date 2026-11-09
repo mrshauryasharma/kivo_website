@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { AdminInstallersTab } from './admin/AdminInstallersTab';
+import type { InstallerMetadata } from './admin/AdminInstallersTab';
+import { AdminCmsTab } from './admin/AdminCmsTab';
+import { AdminTicketsTab } from './admin/AdminTicketsTab';
+import { AdminUsersTab } from './admin/AdminUsersTab';
+import { AdminAnalyticsTab } from './admin/AdminAnalyticsTab';
+import { AdminReleasesTab } from './admin/AdminReleasesTab';
+import logoImg from '../assets/kivo-logo.png';
 import {
   ShieldCheck,
   Lock,
@@ -11,12 +19,10 @@ import {
   Download,
   FileEdit,
   LifeBuoy,
+  Users,
+  BarChart3,
+  Sparkles,
 } from 'lucide-react';
-import logoImg from '../assets/kivo-logo.png';
-import { AdminInstallersTab } from './admin/AdminInstallersTab';
-import type { InstallerMetadata } from './admin/AdminInstallersTab';
-import { AdminCmsTab } from './admin/AdminCmsTab';
-import { AdminTicketsTab } from './admin/AdminTicketsTab';
 
 interface AdminPanelProps {
   onNavigateHome: () => void;
@@ -31,8 +37,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string>('');
   
-  // Navigation tabs: 'installers' | 'cms' | 'tickets'
-  const [activeTab, setActiveTab] = useState<'installers' | 'cms' | 'tickets'>('installers');
+  // Navigation tabs: 'installers' | 'cms' | 'tickets' | 'users' | 'analytics' | 'releases'
+  const [activeTab, setActiveTab] = useState<
+    'installers' | 'cms' | 'tickets' | 'users' | 'analytics' | 'releases'
+  >('installers');
 
   // Installer states
   const [installers, setInstallers] = useState<Record<string, InstallerMetadata | null>>({
@@ -294,37 +302,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
           </div>
 
           {/* Central Module Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08] overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('installers')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'installers'
                   ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Installers & Storage</span>
+              <span>Installers</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('cms')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'cms'
                   ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <FileEdit className="w-3.5 h-3.5" />
-              <span>Website CMS</span>
+              <span>CMS</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('tickets')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'tickets'
                   ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
@@ -332,6 +340,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             >
               <LifeBuoy className="w-3.5 h-3.5" />
               <span>Support Tickets</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                activeTab === 'users'
+                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Users</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                activeTab === 'analytics'
+                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Analytics</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('releases')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                activeTab === 'releases'
+                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Update Center</span>
             </button>
           </div>
 
@@ -373,6 +420,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         {activeTab === 'cms' && <AdminCmsTab csrfToken={csrfToken} />}
 
         {activeTab === 'tickets' && <AdminTicketsTab csrfToken={csrfToken} />}
+
+        {activeTab === 'users' && <AdminUsersTab csrfToken={csrfToken} />}
+
+        {activeTab === 'analytics' && <AdminAnalyticsTab csrfToken={csrfToken} />}
+
+        {activeTab === 'releases' && <AdminReleasesTab csrfToken={csrfToken} />}
       </main>
 
       {/* Footer */}

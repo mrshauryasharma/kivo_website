@@ -64,6 +64,8 @@ export const ATTACHMENTS_DIR = process.env.ATTACHMENTS_DIR
 export const METADATA_FILE = path.join(DATA_DIR, 'installers_metadata.json');
 export const CMS_FILE = path.join(DATA_DIR, 'cms_content.json');
 export const TICKETS_FILE = path.join(DATA_DIR, 'support_tickets.json');
+export const USERS_FILE = path.join(DATA_DIR, 'users.json');
+export const RELEASES_FILE = path.join(DATA_DIR, 'releases.json');
 
 // Legacy paths for auto-migration if upgrading from earlier version
 export const LEGACY_METADATA_FILE = path.join(APP_ROOT, 'storage', 'installers', 'metadata.json');

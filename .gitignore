@@ -14,6 +14,12 @@ build/
 cloudflared.exe
 storage/
 test_storage/
+public/assets/installers/*
+!public/assets/installers/.gitkeep
+public/assets/attachments/*
+!public/assets/attachments/.gitkeep
+public/assets/backups/
+public/assets/data/*.bak
 
 # Environment & Secrets
 .env

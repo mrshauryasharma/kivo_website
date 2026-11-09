@@ -5,6 +5,8 @@ import {
   CMS_FILE,
   TICKETS_FILE,
   METADATA_FILE,
+  USERS_FILE,
+  RELEASES_FILE,
   PLATFORM_RULES,
   LEGACY_METADATA_FILE,
   resolveInstallerFilePath,
@@ -425,21 +427,15 @@ export function getTicketsStore() {
   return store;
 }
 
-// Generates an unpredictable, permanent Ticket ID: KIVO-2026-XXXXXX
+// Generates permanent Ticket ID in format: KIVO-2026-00001
 function generateUniqueTicketId(store) {
   const year = new Date().getFullYear();
-  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removed ambiguous characters (0, O, 1, I)
-  let id = '';
-  let exists = true;
+  let seq = (store.tickets ? store.tickets.length : 0) + 1;
+  let id = `KIVO-${year}-${seq.toString().padStart(5, '0')}`;
 
-  while (exists) {
-    let randCode = '';
-    const bytes = crypto.randomBytes(6);
-    for (let i = 0; i < 6; i++) {
-      randCode += chars[bytes[i] % chars.length];
-    }
-    id = `KIVO-${year}-${randCode}`;
-    exists = store.tickets.some((t) => t.id === id);
+  while (store.tickets && store.tickets.some((t) => t.id === id)) {
+    seq++;
+    id = `KIVO-${year}-${seq.toString().padStart(5, '0')}`;
   }
   return id;
 }
@@ -658,7 +654,15 @@ export function addSupportTicketReply(
 }
 
 export function updateSupportTicketStatus(ticketId, newStatus, changedBy = 'admin', reason = '') {
-  const validStatuses = ['Open', 'Reopened', 'In Progress', 'Waiting for Customer', 'Closed'];
+  const validStatuses = [
+    'Open',
+    'In Progress',
+    'Waiting for Customer',
+    'Waiting for Support',
+    'Resolved',
+    'Closed',
+    'Reopened',
+  ];
   if (!validStatuses.includes(newStatus)) {
     throw new Error(`Invalid status: ${newStatus}. Valid statuses: ${validStatuses.join(', ')}`);
   }
@@ -887,4 +891,195 @@ export function saveStoredMetadata(meta) {
     }
   }
   writeJsonAtomically(METADATA_FILE, meta);
+}
+
+
+// -------------------------------------------------------------
+// Customer User Store Operations
+// -------------------------------------------------------------
+export async function getStoredUsers() {
+  const users = readJsonSafely(USERS_FILE, []);
+  return Array.isArray(users) ? users : [];
+}
+
+export async function saveStoredUsers(users) {
+  writeJsonAtomically(USERS_FILE, Array.isArray(users) ? users : []);
+}
+
+export async function findUserByEmail(email) {
+  if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
+  const users = await getStoredUsers();
+  return users.find((u) => u.email.toLowerCase() === cleanEmail) || null;
+}
+
+export async function findUserById(id) {
+  if (!id) return null;
+  const users = await getStoredUsers();
+  return users.find((u) => u.id === id) || null;
+}
+
+export async function createUserRecord({ name, email, passwordHash, status = 'active', role = 'customer' }) {
+  const users = await getStoredUsers();
+  const newUser = {
+    id: `usr_${crypto.randomUUID()}`,
+    name,
+    email: email.toLowerCase(),
+    passwordHash,
+    status,
+    role,
+    downloadCount: 0,
+    createdAt: new Date().toISOString(),
+    lastLoginAt: new Date().toISOString(),
+    resetToken: null,
+    resetTokenExpiresAt: null,
+  };
+  users.push(newUser);
+  await saveStoredUsers(users);
+  return newUser;
+}
+
+export async function updateUserRecord(updatedUser) {
+  const users = await getStoredUsers();
+  const idx = users.findIndex((u) => u.id === updatedUser.id);
+  if (idx !== -1) {
+    users[idx] = { ...users[idx], ...updatedUser };
+    await saveStoredUsers(users);
+    return users[idx];
+  }
+  return null;
+}
+
+export async function listAllUsers() {
+  const users = await getStoredUsers();
+  return users.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    status: u.status,
+    createdAt: u.createdAt,
+    lastLoginAt: u.lastLoginAt,
+    downloadCount: u.downloadCount || 0,
+  }));
+}
+
+// -------------------------------------------------------------
+// KIVO Update Center & Release Notes Store
+// -------------------------------------------------------------
+export function getStoredReleases() {
+  const initial = [
+    {
+      version: '1.2.0',
+      releaseDate: '2026-11-09',
+      isLatest: true,
+      whatsNew: [
+        'Enhanced Chromium-based isolated sandboxing engine',
+        'Hardware-accelerated rendering optimizations for macOS Apple Silicon and Windows 11',
+        'Built-in real-time AI assistant integration',
+        'Zero telemetry and third-party tracker neutralization',
+      ],
+      bugFixes: [
+        'Resolved memory leak in long-running background tabs',
+        'Fixed occasional graphic stutter during multi-monitor full-screen streaming',
+        'Corrected installer integrity validation for macOS Gatekeeper',
+      ],
+      securityImprovements: [
+        'Upgraded sandboxed network protocol to TLS 1.3 strict enforcement',
+        'Patched session storage boundaries against cross-origin timing attacks',
+      ],
+      systemRequirements: {
+        windows: 'Windows 10 / 11 (64-bit), 4 GB RAM, 500 MB free disk space',
+        macos: 'macOS 12.0 Monterey or newer (Apple Silicon & Intel), 4 GB RAM',
+      },
+      downloads: {
+        windows: { platform: 'windows', fileName: 'KivoSetup-x64.exe', downloadUrl: '/api/download/windows' },
+        macArm: { platform: 'mac-arm64', fileName: 'Kivo-arm64.dmg', downloadUrl: '/api/download/mac-arm64' },
+        macIntel: { platform: 'mac-intel', fileName: 'Kivo-intel.dmg', downloadUrl: '/api/download/mac-intel' },
+      },
+    },
+    {
+      version: '1.1.0',
+      releaseDate: '2026-10-15',
+      isLatest: false,
+      whatsNew: [
+        'Introduced tab workspace groups and privacy isolation bubbles',
+        'Faster cold-boot startup time by 42%',
+      ],
+      bugFixes: ['Fixed PDF viewer render artifact on high-DPI displays'],
+      securityImprovements: ['Hardened local credential store encryption'],
+      systemRequirements: {
+        windows: 'Windows 10 / 11 (64-bit), 4 GB RAM',
+        macos: 'macOS 12.0 or newer, 4 GB RAM',
+      },
+      downloads: {
+        windows: { platform: 'windows', fileName: 'KivoSetup-x64.exe', downloadUrl: '/api/download/windows' },
+        macArm: { platform: 'mac-arm64', fileName: 'Kivo-arm64.dmg', downloadUrl: '/api/download/mac-arm64' },
+        macIntel: { platform: 'mac-intel', fileName: 'Kivo-intel.dmg', downloadUrl: '/api/download/mac-intel' },
+      },
+    },
+  ];
+
+  const stored = readJsonSafely(RELEASES_FILE, initial);
+  return Array.isArray(stored) && stored.length > 0 ? stored : initial;
+}
+
+export function saveStoredReleases(releases) {
+  writeJsonAtomically(RELEASES_FILE, Array.isArray(releases) ? releases : []);
+}
+
+// -------------------------------------------------------------
+// System Analytics Aggregator (Real Metrics, Never Fabricated)
+// -------------------------------------------------------------
+export async function getSystemAnalytics() {
+  const users = await getStoredUsers();
+  const ticketStore = getTicketsStore();
+  const metadata = getStoredMetadata();
+
+  const totalUsers = users.length;
+  const activeUsers = users.filter((u) => u.status === 'active').length;
+
+  const tickets = ticketStore.tickets || [];
+  const openTickets = tickets.filter((t) => t.status === 'Open').length;
+  const inProgressTickets = tickets.filter(
+    (t) =>
+      t.status === 'In Progress' ||
+      t.status === 'Waiting for Customer' ||
+      t.status === 'Waiting for Support'
+  ).length;
+  const resolvedTickets = tickets.filter((t) => t.status === 'Resolved' || t.status === 'Closed').length;
+
+  // Real download count aggregation
+  const totalDownloads = users.reduce((acc, u) => acc + (u.downloadCount || 0), 0);
+
+  return {
+    users: {
+      total: totalUsers,
+      active: activeUsers,
+      suspended: totalUsers - activeUsers,
+    },
+    tickets: {
+      total: tickets.length,
+      open: openTickets,
+      inProgress: inProgressTickets,
+      resolved: resolvedTickets,
+    },
+    installers: {
+      windows: {
+        available: Boolean(metadata.windows?.filePath && fs.existsSync(metadata.windows.filePath)),
+        version: metadata.windows?.version || null,
+      },
+      macArm: {
+        available: Boolean(metadata['mac-arm64']?.filePath && fs.existsSync(metadata['mac-arm64'].filePath)),
+        version: metadata['mac-arm64']?.version || null,
+      },
+      macIntel: {
+        available: Boolean(metadata['mac-intel']?.filePath && fs.existsSync(metadata['mac-intel'].filePath)),
+        version: metadata['mac-intel']?.version || null,
+      },
+    },
+    downloads: {
+      total: totalDownloads,
+    },
+  };
 }

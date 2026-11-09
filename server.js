@@ -64,6 +64,23 @@ import {
 } from './server/security.js';
 import { getStorageMetrics } from './server/storageMonitor.js';
 import { checkMysqlHealth, getMysqlPool } from './server/mysql.js';
+import {
+  registerCustomer,
+  loginCustomer,
+  logoutCustomer,
+  getCustomerSession,
+  requireCustomerAuth,
+  requestPasswordReset,
+  resetPassword,
+} from './server/customerAuth.js';
+import {
+  listAllUsers,
+  updateUserRecord,
+  getStoredReleases,
+  saveStoredReleases,
+  getSystemAnalytics,
+  findUserById,
+} from './server/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -395,6 +412,186 @@ app.get('/api/admin/system/database', requireAdminAuth, async (req, res) => {
     res.status(200).json({ success: true, database: health });
   } catch (err) {
     res.status(500).json({ error: 'Failed to check database health.' });
+  }
+});
+
+// -------------------------------------------------------------
+// Customer Account & Authentication Endpoints
+// -------------------------------------------------------------
+app.post('/api/customer/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+    const result = await registerCustomer({ name, email, password });
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+
+    res.cookie('kivo_customer_session', result.sessionId, {
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.status(201).json({ success: true, user: result.user });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/customer/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const result = await loginCustomer({ email, password });
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+
+    res.cookie('kivo_customer_session', result.sessionId, {
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.status(200).json({ success: true, user: result.user });
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+
+app.post('/api/customer/logout', (req, res) => {
+  const sessionId = req.cookies?.kivo_customer_session;
+  logoutCustomer(sessionId);
+  res.clearCookie('kivo_customer_session', { path: '/' });
+  res.status(200).json({ success: true, message: 'Logged out successfully.' });
+});
+
+app.get('/api/customer/me', async (req, res) => {
+  const sessionId = req.cookies?.kivo_customer_session;
+  const session = await getCustomerSession(sessionId);
+  if (!session) {
+    return res.status(200).json({ authenticated: false });
+  }
+  res.status(200).json({ authenticated: true, user: session.user });
+});
+
+app.post('/api/customer/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const result = await requestPasswordReset(email);
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/customer/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    const result = await resetPassword({ token, newPassword });
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// KIVO Update Center Endpoints
+// -------------------------------------------------------------
+app.get('/api/updates', (req, res) => {
+  try {
+    const releases = getStoredReleases();
+    const latest = releases.find((r) => r.isLatest) || releases[0] || null;
+    res.status(200).json({
+      success: true,
+      latest,
+      releases,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve release history.' });
+  }
+});
+
+app.post('/api/admin/updates/release', requireAdminAuth, (req, res) => {
+  try {
+    const { version, releaseDate, whatsNew, bugFixes, securityImprovements, systemRequirements, isLatest } = req.body || {};
+    if (!version || !releaseDate) {
+      return res.status(400).json({ error: 'Version and release date are required.' });
+    }
+
+    const releases = getStoredReleases();
+    if (isLatest) {
+      releases.forEach((r) => (r.isLatest = false));
+    }
+
+    const existingIdx = releases.findIndex((r) => r.version === version);
+    const releaseRecord = {
+      version,
+      releaseDate,
+      isLatest: Boolean(isLatest),
+      whatsNew: Array.isArray(whatsNew) ? whatsNew : [],
+      bugFixes: Array.isArray(bugFixes) ? bugFixes : [],
+      securityImprovements: Array.isArray(securityImprovements) ? securityImprovements : [],
+      systemRequirements: systemRequirements || {
+        windows: 'Windows 10 / 11 (64-bit), 4 GB RAM',
+        macos: 'macOS 12.0 or newer, 4 GB RAM',
+      },
+      downloads: {
+        windows: { platform: 'windows', fileName: 'KivoSetup-x64.exe', downloadUrl: '/api/download/windows' },
+        macArm: { platform: 'mac-arm64', fileName: 'Kivo-arm64.dmg', downloadUrl: '/api/download/mac-arm64' },
+        macIntel: { platform: 'mac-intel', fileName: 'Kivo-intel.dmg', downloadUrl: '/api/download/mac-intel' },
+      },
+    };
+
+    if (existingIdx !== -1) {
+      releases[existingIdx] = releaseRecord;
+    } else {
+      releases.unshift(releaseRecord);
+    }
+
+    saveStoredReleases(releases);
+    res.status(200).json({ success: true, release: releaseRecord });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// Protected Admin API Endpoints: Analytics & User Management
+// -------------------------------------------------------------
+app.get('/api/admin/analytics', requireAdminAuth, async (req, res) => {
+  try {
+    const analytics = await getSystemAnalytics();
+    res.status(200).json({ success: true, analytics });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve analytics.' });
+  }
+});
+
+app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
+  try {
+    const users = await listAllUsers();
+    res.status(200).json({ success: true, users });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list users.' });
+  }
+});
+
+app.patch('/api/admin/users/:id/status', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body || {};
+    if (!['active', 'suspended'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be active or suspended.' });
+    }
+    const user = await findUserById(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    user.status = status;
+    await updateUserRecord(user);
+    res.status(200).json({ success: true, user: { id: user.id, email: user.email, status: user.status } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

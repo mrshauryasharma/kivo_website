@@ -177,6 +177,37 @@ export async function createTablesIfNotExist() {
       INDEX idx_ticket_email (ticket_id),
       FOREIGN KEY (ticket_id) REFERENCES kivo_support_tickets(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    // 11. Customer Users & Authentication
+    `CREATE TABLE IF NOT EXISTS kivo_users (
+      id VARCHAR(64) PRIMARY KEY,
+      name VARCHAR(128) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'active',
+      role VARCHAR(32) NOT NULL DEFAULT 'customer',
+      download_count INT NOT NULL DEFAULT 0,
+      reset_token VARCHAR(128),
+      reset_token_expires_at BIGINT,
+      created_at DATETIME NOT NULL,
+      last_login_at DATETIME NOT NULL,
+      INDEX idx_user_email (email),
+      INDEX idx_user_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    // 12. KIVO Update Center & Releases
+    `CREATE TABLE IF NOT EXISTS kivo_release_notes (
+      version VARCHAR(32) PRIMARY KEY,
+      release_date DATE NOT NULL,
+      is_latest BOOLEAN NOT NULL DEFAULT FALSE,
+      whats_new_json LONGTEXT,
+      bug_fixes_json LONGTEXT,
+      security_improvements_json LONGTEXT,
+      system_requirements_json LONGTEXT,
+      downloads_json LONGTEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
   ];
 
   try {
