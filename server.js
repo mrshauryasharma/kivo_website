@@ -10,6 +10,7 @@ import {
   ATTACHMENTS_DIR,
   MAX_FILE_SIZE,
   PLATFORM_RULES,
+  INSTALLER_RETENTION_POLICY,
   logSafeAuthDiagnostics,
 } from './server/config.js';
 import {
@@ -156,6 +157,9 @@ app.get('/api/downloads/status', (req, res) => {
           sha256: item.sha256,
           uploadedAt: item.uploadedAt,
           downloadUrl: item.downloadUrl,
+          retention: 'permanent',
+          retentionPolicy: 'indefinite_until_manual_removal',
+          autoDelete: false,
         };
       } else {
         publicStatus[key] = {
@@ -167,6 +171,9 @@ app.get('/api/downloads/status', (req, res) => {
           version: null,
           size: null,
           downloadUrl: null,
+          retention: 'permanent',
+          retentionPolicy: 'indefinite_until_manual_removal',
+          autoDelete: false,
         };
       }
     }
@@ -271,6 +278,7 @@ app.get('/api/admin/installers', requireAdminAuth, async (req, res) => {
       dataDir: DATA_DIR,
       maxFileSize: MAX_FILE_SIZE,
       platforms: PLATFORM_RULES,
+      retentionPolicy: INSTALLER_RETENTION_POLICY,
       storage: storageMetrics,
       database: dbHealth,
     });

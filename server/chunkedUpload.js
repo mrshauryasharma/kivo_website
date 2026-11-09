@@ -14,7 +14,9 @@ import { assertStorageAvailable } from './storageMonitor.js';
 // Active upload sessions stored in memory: Map<uploadId, UploadSession>
 const activeUploads = new Map();
 
-// Periodic cleanup of abandoned chunk folders (older than 2 hours)
+// Periodic cleanup strictly for incomplete/abandoned upload chunks (older than 2 hours).
+// NOTE: Completed desktop installer binaries are NEVER deleted by this or any other routine.
+// Installer binaries have permanent retention and remain until manually deleted by an administrator.
 setInterval(() => {
   try {
     const now = Date.now();
@@ -23,14 +25,24 @@ setInterval(() => {
         cancelUpload(id);
       }
     }
-    // Also clean disk
-    if (fs.existsSync(CHUNKS_DIR)) {
+
+    // Safety guard: Ensure CHUNKS_DIR is strictly separate from UPLOADS_DIR
+    if (path.resolve(CHUNKS_DIR) !== path.resolve(UPLOADS_DIR) && fs.existsSync(CHUNKS_DIR)) {
       const dirs = fs.readdirSync(CHUNKS_DIR);
       for (const dir of dirs) {
         const full = path.join(CHUNKS_DIR, dir);
-        const stat = fs.statSync(full);
-        if (now - stat.mtimeMs > 2 * 60 * 60 * 1000) {
-          fs.rmSync(full, { recursive: true, force: true });
+        try {
+          const stat = fs.statSync(full);
+          if (stat.isDirectory() && now - stat.mtimeMs > 2 * 60 * 60 * 1000) {
+            // Verify directory contains temporary chunks only, never binary targets
+            const contents = fs.readdirSync(full);
+            const isChunkOnlyDir = contents.every((f) => f.endsWith('.part') || f.startsWith('chunk_'));
+            if (isChunkOnlyDir) {
+              fs.rmSync(full, { recursive: true, force: true });
+            }
+          }
+        } catch {
+          // Skip file lock or permission errors
         }
       }
     }
@@ -216,7 +228,7 @@ export async function completeUpload(uploadId) {
     throw new Error(`Failed to atomically replace installer: ${swapErr.message}`);
   }
 
-  // Update metadata file
+  // Update metadata file with permanent retention guarantees
   const metadata = getMetadata();
   metadata[session.platform] = {
     platform: session.platform,
@@ -229,6 +241,9 @@ export async function completeUpload(uploadId) {
     filePath: targetFilePath,
     uploadedAt: new Date().toISOString(),
     downloadUrl: `/api/download/${session.platform}`,
+    retention: 'permanent',
+    retentionPolicy: 'indefinite_until_manual_removal',
+    autoDelete: false,
   };
   saveMetadata(metadata);
 

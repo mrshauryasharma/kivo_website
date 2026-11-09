@@ -3,6 +3,8 @@ import path from 'node:path';
 import {
   PLATFORM_RULES,
   UPLOADS_DIR,
+  resolveInstallerFilePath,
+  INSTALLER_RETENTION_POLICY,
 } from './config.js';
 import {
   getStoredMetadata,
@@ -14,43 +16,37 @@ export function getMetadata() {
   return getStoredMetadata();
 }
 
-// Save metadata atomically to disk
+// Save metadata atomically to disk (guaranteeing permanent retention metadata)
 export function saveMetadata(meta) {
   saveStoredMetadata(meta);
 }
 
-// Get installer details by platform with path resolution fallback
+// Get installer details by platform with multi-location persistent path resolution
 export function getInstaller(platform) {
   const metadata = getMetadata();
   const installer = metadata[platform];
   if (!installer) return null;
 
-  // Verify file path or attempt resolution in persistent UPLOADS_DIR
+  // 1. Direct path check
   if (installer.filePath && fs.existsSync(installer.filePath)) {
     return installer;
   }
 
-  // Fallback: check persistent UPLOADS_DIR with target or original filename
-  const ext = path.extname(installer.filename || '');
-  const candidateNames = [
-    `${platform}${ext}`,
-    installer.filename,
-    PLATFORM_RULES[platform]?.defaultFileName,
-  ].filter(Boolean);
-
-  for (const name of candidateNames) {
-    const candidatePath = path.join(UPLOADS_DIR, name);
-    if (fs.existsSync(candidatePath)) {
-      installer.filePath = candidatePath;
-      saveMetadata(metadata);
-      return installer;
-    }
+  // 2. Multi-directory persistent candidate resolution
+  const resolvedPath = resolveInstallerFilePath(platform, installer.filename, installer.filePath);
+  if (resolvedPath) {
+    installer.filePath = resolvedPath;
+    saveMetadata(metadata);
+    return installer;
   }
 
   return null;
 }
 
-// Delete installer for platform
+// Delete installer for platform (MANUAL ADMIN REMOVAL ONLY)
+// Note: Desktop installer binaries are permanently retained on disk.
+// There is zero automatic deletion, TTL, cron, or timer on completed installers.
+// Manual removal through this function by an authorized administrator is the ONLY deletion mechanism.
 export function deleteInstaller(platform) {
   if (!PLATFORM_RULES[platform]) {
     throw new Error(`Invalid platform: ${platform}`);
@@ -64,6 +60,16 @@ export function deleteInstaller(platform) {
       fs.unlinkSync(current.filePath);
     } catch (err) {
       console.warn(`[KIVO Storage] Failed to delete file ${current.filePath}:`, err);
+    }
+  }
+
+  // Clean any candidate duplicate binary for this platform to ensure complete manual removal
+  const candidatePath = resolveInstallerFilePath(platform, current?.filename);
+  if (candidatePath && fs.existsSync(candidatePath)) {
+    try {
+      fs.unlinkSync(candidatePath);
+    } catch {
+      // Non-critical
     }
   }
 

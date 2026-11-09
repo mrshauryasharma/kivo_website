@@ -25,6 +25,9 @@ export interface InstallerMetadata {
   sha256: string;
   uploadedAt: string;
   downloadUrl: string;
+  retention?: string;
+  retentionPolicy?: string;
+  autoDelete?: boolean;
 }
 
 interface AdminInstallersTabProps {
@@ -347,14 +350,14 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
   return (
     <div>
       {/* Overview Bar */}
-      <div className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-kivo-blue/15 text-kivo-blue flex items-center justify-center">
             <Server className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Target Node.js Server</span>
-            <span className="text-xs font-semibold text-white">GoDaddy Node.js Platform</span>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Target Platform</span>
+            <span className="text-xs font-semibold text-white">GoDaddy Node.js</span>
           </div>
         </div>
 
@@ -363,10 +366,20 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
             <HardDrive className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Persistent Storage Directory</span>
-            <span className="text-xs font-semibold text-white font-mono truncate max-w-[220px] block" title={serverInfo.uploadsDir}>
-              {serverInfo.uploadsDir ? pathBasename(serverInfo.uploadsDir) : 'Active Persistent Storage'}
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Storage Directory</span>
+            <span className="text-xs font-semibold text-white font-mono truncate max-w-[180px] block" title={serverInfo.uploadsDir}>
+              {serverInfo.uploadsDir ? pathBasename(serverInfo.uploadsDir) : 'Persistent Storage'}
             </span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">File Retention</span>
+            <span className="text-xs font-semibold text-emerald-400">Permanent (Manual Only)</span>
           </div>
         </div>
 
@@ -375,8 +388,8 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Storage Protection</span>
-            <span className="text-xs font-semibold text-white">Atomic Swap & SHA-256 Verified</span>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Integrity Protection</span>
+            <span className="text-xs font-semibold text-white">Atomic Swap & SHA-256</span>
           </div>
         </div>
       </div>
@@ -466,6 +479,14 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
                         {current.filename}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.06]">
+                      <span className="text-slate-400">File Retention:</span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Permanent (Manual Only)
+                      </span>
+                    </div>
+
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.06]">
                       <span className="text-slate-400">SHA-256 Checksum:</span>
                       <button

@@ -69,6 +69,70 @@ export const TICKETS_FILE = path.join(DATA_DIR, 'support_tickets.json');
 export const LEGACY_METADATA_FILE = path.join(APP_ROOT, 'storage', 'installers', 'metadata.json');
 export const LEGACY_UPLOADS_DIR = path.join(APP_ROOT, 'storage', 'installers');
 
+// Permanent file retention policy: Desktop installer files are NEVER auto-deleted.
+// Retained permanently on disk until manually removed by an authorized administrator.
+export const INSTALLER_RETENTION_POLICY = {
+  retention: 'permanent',
+  policy: 'indefinite_until_manual_removal',
+  autoDelete: false,
+  ttlHours: null,
+  description:
+    'Desktop installer binaries are permanently retained in storage and will never be automatically deleted by any system TTL, cron, or interval. Only explicit manual deletion by an administrator is permitted.',
+};
+
+// Candidate persistent storage roots where installer binaries may reside
+export function getCandidateStorageDirs() {
+  const dirs = [
+    UPLOADS_DIR,
+    LEGACY_UPLOADS_DIR,
+    path.join(APP_ROOT, 'public', 'assets', 'installers'),
+    path.join(APP_ROOT, 'storage', 'installers'),
+  ];
+  if (process.env.HOME) {
+    dirs.push(path.join(process.env.HOME, 'kivo_persistent_storage', 'installers'));
+    dirs.push(path.join(process.env.HOME, 'public_html', 'assets', 'installers'));
+  }
+  return [...new Set(dirs.filter(Boolean))];
+}
+
+// Resolve physical binary across candidate persistent storage roots
+export function resolveInstallerFilePath(platform, filename, preferredPath) {
+  if (preferredPath && typeof preferredPath === 'string') {
+    try {
+      if (fs.existsSync(preferredPath)) {
+        const stat = fs.statSync(preferredPath);
+        if (stat.isFile() && stat.size > 0) return preferredPath;
+      }
+    } catch {}
+  }
+
+  const rule = PLATFORM_RULES[platform];
+  const ext = path.extname(filename || rule?.defaultFileName || '');
+  const candidateFilenames = [
+    filename,
+    `${platform}${ext}`,
+    rule?.defaultFileName,
+  ].filter(Boolean);
+
+  const candidateDirs = getCandidateStorageDirs();
+
+  for (const dir of candidateDirs) {
+    for (const name of candidateFilenames) {
+      const candidatePath = path.join(dir, name);
+      try {
+        if (fs.existsSync(candidatePath)) {
+          const stat = fs.statSync(candidatePath);
+          if (stat.isFile() && stat.size > 0) {
+            return candidatePath;
+          }
+        }
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
 // Ensure all persistent directories exist
 for (const dir of [UPLOADS_DIR, CHUNKS_DIR, DATA_DIR, ATTACHMENTS_DIR]) {
   try {

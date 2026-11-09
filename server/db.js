@@ -7,6 +7,8 @@ import {
   METADATA_FILE,
   PLATFORM_RULES,
   LEGACY_METADATA_FILE,
+  resolveInstallerFilePath,
+  INSTALLER_RETENTION_POLICY,
 } from './config.js';
 
 // -------------------------------------------------------------
@@ -812,7 +814,7 @@ export function verifyCustomerAccess(ticketId, email, otpOrToken) {
 }
 
 // -------------------------------------------------------------
-// Installer Metadata Operations
+// Installer Metadata Operations (Permanent Retention Architecture)
 // -------------------------------------------------------------
 export function getStoredMetadata() {
   try {
@@ -826,13 +828,42 @@ export function getStoredMetadata() {
       'mac-intel': null,
     };
 
+    let needsSave = false;
+
     for (const platform of Object.keys(PLATFORM_RULES)) {
-      if (parsed[platform] && parsed[platform].filePath) {
-        if (!fs.existsSync(parsed[platform].filePath)) {
-          parsed[platform] = null;
+      const item = parsed[platform];
+      if (item) {
+        // Enforce permanent retention metadata: never auto-delete after hours or restart
+        if (!item.retention || item.retention !== 'permanent') {
+          item.retention = 'permanent';
+          item.retentionPolicy = 'indefinite_until_manual_removal';
+          item.autoDelete = false;
+          needsSave = true;
+        }
+
+        // Verify or dynamically resolve file path across candidate persistent roots
+        if (!item.filePath || !fs.existsSync(item.filePath)) {
+          const resolvedPath = resolveInstallerFilePath(platform, item.filename, item.filePath);
+          if (resolvedPath) {
+            item.filePath = resolvedPath;
+            needsSave = true;
+          }
+          // IMPORTANT: Do NOT set parsed[platform] = null!
+          // Installer files are permanent. Even if storage is temporarily unmounted
+          // or being accessed, the metadata is NEVER wiped automatically.
+          // Only explicit manual admin removal (deleteInstaller) clears metadata.
         }
       }
     }
+
+    if (needsSave) {
+      try {
+        saveStoredMetadata(parsed);
+      } catch {
+        // Non-critical on read
+      }
+    }
+
     return parsed;
   } catch (err) {
     console.error('[KIVO DB] Error reading installer metadata:', err);
@@ -845,5 +876,15 @@ export function getStoredMetadata() {
 }
 
 export function saveStoredMetadata(meta) {
+  // Ensure every stored installer record is stamped with permanent retention
+  if (meta && typeof meta === 'object') {
+    for (const platform of Object.keys(meta)) {
+      if (meta[platform]) {
+        meta[platform].retention = 'permanent';
+        meta[platform].retentionPolicy = 'indefinite_until_manual_removal';
+        meta[platform].autoDelete = false;
+      }
+    }
+  }
   writeJsonAtomically(METADATA_FILE, meta);
 }
