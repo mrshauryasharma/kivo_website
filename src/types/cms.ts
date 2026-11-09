@@ -159,7 +159,7 @@ export interface SupportTicketEmailLog {
   retriedAt?: string;
 }
 
-export type TicketStatus = 'Open' | 'Reopened' | 'In Progress' | 'Waiting for Customer' | 'Closed';
+export type TicketStatus = 'Open' | 'In Progress' | 'Waiting for Customer' | 'Waiting for Support' | 'Resolved' | 'Closed';
 
 export interface SupportTicket {
   id: string;
@@ -171,6 +171,7 @@ export interface SupportTicket {
   description: string;
   status: TicketStatus;
   priority?: string;
+  assignee?: string;
   createdAt: string;
   updatedAt: string;
   lastResponseAt?: string | null;

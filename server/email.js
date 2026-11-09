@@ -123,8 +123,8 @@ async function postResendEmail({ to, subject, html, text, replyTo }) {
 // -------------------------------------------------------------
 export async function sendTicketReceivedEmail(ticket) {
   const config = getEmailConfig();
-  const trackingUrl = `${config.appBaseUrl}/support/track?ticketId=${encodeURIComponent(ticket.id)}`;
-  const subject = `We’ve Received Your Message — KIVO Support`;
+  const trackingUrl = `${config.appBaseUrl}/track-ticket?ticketId=${encodeURIComponent(ticket.id)}`;
+  const subject = `[${ticket.id}] We’ve Received Your Support Request — KIVO Support`;
 
   const html = renderEmailWrapper({
     title: subject,
@@ -140,6 +140,7 @@ export async function sendTicketReceivedEmail(ticket) {
           <tr><td style="color:#94a3b8; width: 35%; padding: 4px 0;">Ticket Reference</td><td style="color:#38bdf8; font-family:monospace; font-weight:700;">${ticket.id}</td></tr>
           <tr><td style="color:#94a3b8; padding: 4px 0;">Category</td><td style="color:#ffffff;">${ticket.category}</td></tr>
           <tr><td style="color:#94a3b8; padding: 4px 0;">Subject</td><td style="color:#ffffff;">${ticket.subject}</td></tr>
+          <tr><td style="color:#94a3b8; padding: 4px 0;">Registered Mobile</td><td style="color:#ffffff;">${ticket.phone || 'N/A'}</td></tr>
           <tr><td style="color:#94a3b8; padding: 4px 0;">Submitted On</td><td style="color:#ffffff;">${new Date(ticket.createdAt).toLocaleString()}</td></tr>
           <tr><td style="color:#94a3b8; padding: 4px 0;">Current Status</td><td style="color:#38bdf8; font-weight:600;">${ticket.status}</td></tr>
         </table>
@@ -192,7 +193,7 @@ The KIVO Engineering & Support Team
 // -------------------------------------------------------------
 export async function sendAdminReplyEmail(ticket, replyText) {
   const config = getEmailConfig();
-  const trackingUrl = `${config.appBaseUrl}/support/track?ticketId=${encodeURIComponent(ticket.id)}`;
+  const trackingUrl = `${config.appBaseUrl}/track-ticket?ticketId=${encodeURIComponent(ticket.id)}`;
   const subject = `New Reply to Your KIVO Support Ticket — [${ticket.id}]`;
 
   const html = renderEmailWrapper({
@@ -243,7 +244,7 @@ The KIVO Support Team
 // -------------------------------------------------------------
 export async function sendTicketReopenedEmail(ticket) {
   const config = getEmailConfig();
-  const trackingUrl = `${config.appBaseUrl}/support/track?ticketId=${encodeURIComponent(ticket.id)}`;
+  const trackingUrl = `${config.appBaseUrl}/track-ticket?ticketId=${encodeURIComponent(ticket.id)}`;
   const subject = `Your KIVO Support Ticket Has Been Reopened — [${ticket.id}]`;
 
   const html = renderEmailWrapper({
@@ -287,7 +288,7 @@ KIVO Support
 // -------------------------------------------------------------
 export async function sendTicketClosedEmail(ticket) {
   const config = getEmailConfig();
-  const trackingUrl = `${config.appBaseUrl}/support/track?ticketId=${encodeURIComponent(ticket.id)}`;
+  const trackingUrl = `${config.appBaseUrl}/track-ticket?ticketId=${encodeURIComponent(ticket.id)}`;
   const subject = `Your KIVO Support Ticket Has Been Closed — [${ticket.id}]`;
 
   const html = renderEmailWrapper({
@@ -301,7 +302,7 @@ export async function sendTicketClosedEmail(ticket) {
 
       <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; margin: 20px 0;">
         <p style="margin: 0; font-size: 13px; color: #cbd5e1;">
-          <strong>Need further assistance?</strong> You can return to this exact ticket anytime using your Ticket ID and send another message. Sending a new message will automatically reopen the ticket.
+          <strong>Need further assistance?</strong> You can return to this exact ticket anytime using your Ticket ID and send another message. This ticket is now permanently closed. To report any further issues, please submit a new ticket.
         </p>
       </div>
 
@@ -388,7 +389,7 @@ Open Admin Panel: ${adminUrl}
 // -------------------------------------------------------------
 export async function sendCustomerOtpEmail(ticket, otpCode, magicToken) {
   const config = getEmailConfig();
-  const magicLink = `${config.appBaseUrl}/support/track?ticketId=${encodeURIComponent(ticket.id)}&token=${encodeURIComponent(magicToken)}`;
+  const magicLink = `${config.appBaseUrl}/track-ticket?ticketId=${encodeURIComponent(ticket.id)}&token=${encodeURIComponent(magicToken)}`;
   const subject = `Your KIVO Support Verification Code: ${otpCode}`;
 
   const html = renderEmailWrapper({

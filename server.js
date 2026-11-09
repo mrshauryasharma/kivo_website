@@ -50,6 +50,8 @@ import {
   handleAdminReply,
   handleAdminAddNote,
   handleAdminUpdateStatus,
+  handleAdminUpdatePriority,
+  handleAdminUpdateAssignee,
   handleRetryEmail,
   handleStreamAttachment,
 } from './server/tickets.js';
@@ -391,6 +393,8 @@ app.get('/api/admin/tickets/:id', requireAdminAuth, handleGetTicketDetails);
 app.post('/api/admin/tickets/:id/reply', requireAdminAuth, handleAdminReply);
 app.post('/api/admin/tickets/:id/note', requireAdminAuth, handleAdminAddNote);
 app.patch('/api/admin/tickets/:id/status', requireAdminAuth, handleAdminUpdateStatus);
+app.patch('/api/admin/tickets/:id/priority', requireAdminAuth, handleAdminUpdatePriority);
+app.patch('/api/admin/tickets/:id/assignee', requireAdminAuth, handleAdminUpdateAssignee);
 app.post('/api/admin/tickets/:id/retry-email', requireAdminAuth, handleRetryEmail);
 app.get('/api/admin/tickets/:id/attachment/:filename', requireAdminAuth, handleStreamAttachment);
 

@@ -15,10 +15,13 @@ import {
   addSupportTicketReply,
   addSupportTicketNote,
   updateSupportTicketStatus,
+  updateSupportTicketPriority,
+  updateSupportTicketAssignee,
   getTicketsStore,
   createVerificationToken,
   verifyCustomerAccess,
   logTicketEmailEvent,
+  maskEmail,
 } from './db.js';
 import {
   sendTicketReceivedEmail,
@@ -161,8 +164,17 @@ export async function handleTicketSubmission(req, res) {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
     }
 
-    if (phone && typeof phone === 'string' && phone.trim().length > 35) {
-      return res.status(400).json({ error: 'Phone number is too long.' });
+    const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+    if (!cleanPhone) {
+      return res.status(400).json({ error: 'Customer mobile number is mandatory.' });
+    }
+
+    const digitsOnly = cleanPhone.replace(/\D/g, '');
+    const phoneRegex = /^\+?[0-9\s\-()]{7,25}$/;
+    if (!phoneRegex.test(cleanPhone) || digitsOnly.length < 7 || digitsOnly.length > 15) {
+      return res.status(400).json({
+        error: 'Please enter a valid mobile number (e.g. +1 555 123 4567 or standard 10-15 digit phone number).',
+      });
     }
 
     const cleanCategory = ALLOWED_CATEGORIES.find(
@@ -184,7 +196,7 @@ export async function handleTicketSubmission(req, res) {
     const ticket = createSupportTicket({
       name,
       email,
-      phone,
+      phone: cleanPhone,
       category: cleanCategory,
       subject,
       description,
@@ -255,12 +267,15 @@ export async function handleTicketSubmission(req, res) {
 // -------------------------------------------------------------
 export async function handleRequestOtp(req, res) {
   try {
-    const { ticketId, email } = req.body || {};
-    if (!ticketId || !email) {
-      return res.status(400).json({ error: 'Ticket ID and registered email are required.' });
+    const { ticketId, email, phone, identifier } = req.body || {};
+    const cleanId = (ticketId || '').trim();
+    const cleanIdentifier = (identifier || email || phone || '').trim();
+
+    if (!cleanId || !cleanIdentifier) {
+      return res.status(400).json({ error: 'Ticket ID and registered email or mobile number are required.' });
     }
 
-    const result = createVerificationToken(ticketId, email);
+    const result = createVerificationToken(cleanId, cleanIdentifier);
 
     // Send OTP email
     sendCustomerOtpEmail(result.ticket, result.otpCode, result.magicToken)
@@ -286,7 +301,7 @@ export async function handleRequestOtp(req, res) {
 
     res.status(200).json({
       success: true,
-      message: `A 6-digit verification code and magic link have been sent to ${result.ticket.email}.`,
+      message: `A 6-digit verification code has been sent to your registered email (${maskEmail(result.ticket.email)}).`,
     });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Failed to generate verification code.' });
@@ -295,12 +310,15 @@ export async function handleRequestOtp(req, res) {
 
 export function handleVerifyOtp(req, res) {
   try {
-    const { ticketId, email, otpOrToken } = req.body || {};
-    if (!ticketId || !otpOrToken) {
+    const { ticketId, email, phone, identifier, otpOrToken } = req.body || {};
+    const cleanId = (ticketId || '').trim();
+    const cleanIdentifier = (identifier || email || phone || '').trim();
+
+    if (!cleanId || !otpOrToken) {
       return res.status(400).json({ error: 'Ticket ID and verification code are required.' });
     }
 
-    const result = verifyCustomerAccess(ticketId, email, otpOrToken);
+    const result = verifyCustomerAccess(cleanId, cleanIdentifier, otpOrToken);
     if (!result.valid) {
       return res.status(403).json({ error: result.error || 'Invalid or expired verification code.' });
     }
@@ -365,7 +383,13 @@ export async function handleCustomerReply(req, res) {
       return res.status(404).json({ error: `Ticket ${id} not found.` });
     }
 
-    const { reply, statusChanged, previousStatus } = addSupportTicketReply(id, {
+    if (ticket.status === 'Closed') {
+      return res.status(400).json({
+        error: 'This ticket is permanently closed. Please submit a new ticket for any new or recurring issues.',
+      });
+    }
+
+    const { reply } = addSupportTicketReply(id, {
       sender: ticket.name,
       senderType: 'customer',
       text,
@@ -375,22 +399,6 @@ export async function handleCustomerReply(req, res) {
 
     // Notify admin
     sendAdminTicketAlertEmail(ticket, text, true).catch(() => {});
-
-    // If ticket was reopened from closed, notify customer that ticket is reopened!
-    if (statusChanged && previousStatus === 'Closed') {
-      sendTicketReopenedEmail(ticket)
-        .then((eRes) => {
-          logTicketEmailEvent(ticket.id, {
-            type: 'status_changed',
-            recipient: ticket.email,
-            subject: `Your KIVO Support Ticket Has Been Reopened — [${ticket.id}]`,
-            status: eRes.success ? 'delivered' : 'failed',
-            error: eRes.error || null,
-            resendId: eRes.id || null,
-          });
-        })
-        .catch(() => {});
-    }
 
     const sanitized = getSupportTicketForCustomer(id);
     res.status(200).json({
@@ -554,25 +562,34 @@ export async function handleAdminUpdateStatus(req, res) {
         .catch(() => {});
     }
 
-    // If reopened by admin
-    if (status === 'Reopened' && prevStatus !== 'Reopened') {
-      sendTicketReopenedEmail(updated)
-        .then((eRes) => {
-          logTicketEmailEvent(updated.id, {
-            type: 'status_changed',
-            recipient: updated.email,
-            subject: `Your KIVO Support Ticket Has Been Reopened — [${updated.id}]`,
-            status: eRes.success ? 'delivered' : 'failed',
-            error: eRes.error || null,
-            resendId: eRes.id || null,
-          });
-        })
-        .catch(() => {});
-    }
-
     res.status(200).json({ success: true, ticket: updated });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+}
+
+export async function handleAdminUpdatePriority(req, res) {
+  try {
+    const { id } = req.params;
+    const { priority } = req.body || {};
+    if (!priority) {
+      return res.status(400).json({ error: 'Priority is required.' });
+    }
+    const updated = updateSupportTicketPriority(id, priority);
+    res.status(200).json({ success: true, ticket: updated });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to update priority.' });
+  }
+}
+
+export async function handleAdminUpdateAssignee(req, res) {
+  try {
+    const { id } = req.params;
+    const { assignee } = req.body || {};
+    const updated = updateSupportTicketAssignee(id, assignee);
+    res.status(200).json({ success: true, ticket: updated });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to update assignee.' });
   }
 }
 
@@ -598,7 +615,7 @@ export async function handleRetryEmail(req, res) {
       const lastAdminMsg = [...ticket.messages].reverse().find((m) => m.senderType === 'admin');
       retryRes = await sendAdminReplyEmail(ticket, lastAdminMsg?.text || 'Support reply');
     } else if (logEntry.type === 'status_changed') {
-      retryRes = ticket.status === 'Closed' ? await sendTicketClosedEmail(ticket) : await sendTicketReopenedEmail(ticket);
+      retryRes = await sendTicketClosedEmail(ticket);
     }
 
     if (retryRes) {

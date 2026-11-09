@@ -427,16 +427,57 @@ export function getTicketsStore() {
   return store;
 }
 
-// Generates permanent Ticket ID in format: KIVO-2026-00001
+// Masking helpers to shield customer personal information in public tracking
+export function maskEmail(email) {
+  if (!email || typeof email !== 'string') return '';
+  const parts = email.trim().split('@');
+  if (parts.length !== 2) return email;
+  const [local, domain] = parts;
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
+}
+
+export function maskPhone(phone) {
+  if (!phone || typeof phone !== 'string') return '';
+  const clean = phone.trim();
+  const digits = clean.replace(/\D/g, '');
+  if (digits.length <= 4) return '••••';
+  const last4 = digits.slice(-4);
+  return `+•• •••• ••${last4}`;
+}
+
+// Generates permanent unique Ticket ID in format: KIVO-2026-00001 (strictly monotonic, never reused)
 function generateUniqueTicketId(store) {
   const year = new Date().getFullYear();
-  let seq = (store.tickets ? store.tickets.length : 0) + 1;
-  let id = `KIVO-${year}-${seq.toString().padStart(5, '0')}`;
+  let maxSeq = 0;
+
+  if (typeof store.ticketSequenceCounter === 'number' && store.ticketSequenceCounter > 0) {
+    maxSeq = store.ticketSequenceCounter;
+  }
+
+  if (Array.isArray(store.tickets)) {
+    for (const t of store.tickets) {
+      if (t && typeof t.id === 'string') {
+        const match = t.id.match(/^KIVO-\d{4}-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    }
+  }
+
+  let nextSeq = maxSeq + 1;
+  let id = `KIVO-${year}-${nextSeq.toString().padStart(5, '0')}`;
 
   while (store.tickets && store.tickets.some((t) => t.id === id)) {
-    seq++;
-    id = `KIVO-${year}-${seq.toString().padStart(5, '0')}`;
+    nextSeq++;
+    id = `KIVO-${year}-${nextSeq.toString().padStart(5, '0')}`;
   }
+
+  store.ticketSequenceCounter = nextSeq;
   return id;
 }
 
@@ -508,6 +549,7 @@ export function listSupportTickets({
   search = '',
   status = '',
   category = '',
+  priority = '',
   limit = 50,
   offset = 0,
 } = {}) {
@@ -520,6 +562,10 @@ export function listSupportTickets({
 
   if (category && category !== 'all') {
     list = list.filter((t) => t.category.toLowerCase() === category.toLowerCase());
+  }
+
+  if (priority && priority !== 'all') {
+    list = list.filter((t) => (t.priority || 'Normal').toLowerCase() === priority.toLowerCase());
   }
 
   if (search && search.trim()) {
@@ -548,7 +594,7 @@ export function getSupportTicketById(id) {
   return store.tickets.find((t) => t.id === id) || null;
 }
 
-// Sanitized ticket for customer view (strictly strips internalNotes and admin-private logs)
+// Sanitized ticket for customer view (strictly shields customer personal info and omits internalNotes)
 export function getSupportTicketForCustomer(id) {
   const ticket = getSupportTicketById(id);
   if (!ticket) return null;
@@ -556,11 +602,12 @@ export function getSupportTicketForCustomer(id) {
   return {
     id: ticket.id,
     name: ticket.name,
-    email: ticket.email,
-    phone: ticket.phone,
+    email: maskEmail(ticket.email),
+    phone: maskPhone(ticket.phone),
     category: ticket.category,
     subject: ticket.subject,
     status: ticket.status,
+    priority: ticket.priority || 'Normal',
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
     messages: (ticket.messages || []).map((m) => ({
@@ -596,6 +643,12 @@ export function addSupportTicketReply(
     throw new Error(`Ticket ${ticketId} not found.`);
   }
 
+  // PERMANENT CLOSED TICKET RULE:
+  // Once a ticket is Closed, it must remain closed permanently. No replies or reopenings permitted.
+  if (ticket.status === 'Closed') {
+    throw new Error('This ticket is permanently closed. Please submit a new ticket for any new or recurring issues.');
+  }
+
   const now = new Date().toISOString();
   const formattedAttachments = (attachments || []).map((a) => ({
     id: a.id || crypto.randomUUID(),
@@ -622,21 +675,9 @@ export function addSupportTicketReply(
   let statusChanged = false;
   let previousStatus = ticket.status;
 
-  // CLOSED TICKET REOPENING RULE:
-  // If a customer sends a new message on a Closed ticket, automatically change status from Closed to Reopened
-  if (senderType === 'customer' && ticket.status === 'Closed') {
-    ticket.status = 'Reopened';
-    ticket.statusHistory.push({
-      from: 'Closed',
-      to: 'Reopened',
-      changedBy: 'customer',
-      timestamp: now,
-      reason: 'Customer replied to closed ticket',
-    });
-    statusChanged = true;
-  } else if (senderType === 'admin') {
+  if (senderType === 'admin') {
     ticket.lastResponseAt = now;
-    if (ticket.status === 'Open' || ticket.status === 'Reopened') {
+    if (ticket.status === 'Open') {
       ticket.status = 'Waiting for Customer';
       ticket.statusHistory.push({
         from: previousStatus,
@@ -661,7 +702,6 @@ export function updateSupportTicketStatus(ticketId, newStatus, changedBy = 'admi
     'Waiting for Support',
     'Resolved',
     'Closed',
-    'Reopened',
   ];
   if (!validStatuses.includes(newStatus)) {
     throw new Error(`Invalid status: ${newStatus}. Valid statuses: ${validStatuses.join(', ')}`);
@@ -671,6 +711,11 @@ export function updateSupportTicketStatus(ticketId, newStatus, changedBy = 'admi
   const ticket = store.tickets.find((t) => t.id === ticketId);
   if (!ticket) {
     throw new Error(`Ticket ${ticketId} not found.`);
+  }
+
+  // Once a ticket is closed, it cannot be modified or reopened
+  if (ticket.status === 'Closed' && newStatus !== 'Closed') {
+    throw new Error('Closed tickets cannot be modified or reopened. Please create a new ticket.');
   }
 
   const from = ticket.status;
@@ -689,6 +734,34 @@ export function updateSupportTicketStatus(ticketId, newStatus, changedBy = 'admi
     reason,
   });
 
+  writeJsonAtomically(TICKETS_FILE, store);
+  return ticket;
+}
+
+export function updateSupportTicketPriority(ticketId, priority) {
+  const validPriorities = ['Low', 'Normal', 'High', 'Urgent'];
+  if (!validPriorities.includes(priority)) {
+    throw new Error(`Invalid priority. Valid options: ${validPriorities.join(', ')}`);
+  }
+  const store = getTicketsStore();
+  const ticket = store.tickets.find((t) => t.id === ticketId);
+  if (!ticket) {
+    throw new Error(`Ticket ${ticketId} not found.`);
+  }
+  ticket.priority = priority;
+  ticket.updatedAt = new Date().toISOString();
+  writeJsonAtomically(TICKETS_FILE, store);
+  return ticket;
+}
+
+export function updateSupportTicketAssignee(ticketId, assignee) {
+  const store = getTicketsStore();
+  const ticket = store.tickets.find((t) => t.id === ticketId);
+  if (!ticket) {
+    throw new Error(`Ticket ${ticketId} not found.`);
+  }
+  ticket.assignee = (assignee || 'Unassigned').trim();
+  ticket.updatedAt = new Date().toISOString();
   writeJsonAtomically(TICKETS_FILE, store);
   return ticket;
 }
@@ -740,14 +813,29 @@ export function logTicketEmailEvent(ticketId, { type, recipient, subject, status
 // -------------------------------------------------------------
 // Customer Verification Tokens (OTP & Magic Links for IDOR Prevention)
 // -------------------------------------------------------------
-export function createVerificationToken(ticketId, email) {
+export function createVerificationToken(ticketId, identifier) {
   const store = getTicketsStore();
-  const ticket = store.tickets.find(
-    (t) => t.id.toUpperCase() === ticketId.trim().toUpperCase() && t.email.toLowerCase() === email.trim().toLowerCase()
-  );
+  const cleanId = (ticketId || '').trim().toUpperCase();
+  const cleanInput = (identifier || '').trim();
+  const cleanDigits = cleanInput.replace(/\D/g, '');
+
+  const ticket = store.tickets.find((t) => {
+    if (t.id.toUpperCase() !== cleanId) return false;
+    // Check registered email match
+    if (t.email && t.email.toLowerCase() === cleanInput.toLowerCase()) return true;
+    // Check registered mobile number match
+    if (t.phone) {
+      if (t.phone.trim() === cleanInput) return true;
+      const tDigits = t.phone.replace(/\D/g, '');
+      if (cleanDigits.length >= 7 && (tDigits === cleanDigits || tDigits.endsWith(cleanDigits) || cleanDigits.endsWith(tDigits))) {
+        return true;
+      }
+    }
+    return false;
+  });
 
   if (!ticket) {
-    throw new Error('Ticket ID and email address do not match our records.');
+    throw new Error('Ticket ID and registered email or mobile number do not match our records.');
   }
 
   // Generate 6-digit OTP code (e.g. 849201)
@@ -764,6 +852,7 @@ export function createVerificationToken(ticketId, email) {
   const tokenEntry = {
     ticketId: ticket.id,
     email: ticket.email,
+    phone: ticket.phone,
     otpCode,
     magicToken,
     expiresAt,
@@ -782,15 +871,13 @@ export function createVerificationToken(ticketId, email) {
   };
 }
 
-export function verifyCustomerAccess(ticketId, email, otpOrToken) {
+export function verifyCustomerAccess(ticketId, identifier, otpOrToken) {
   const store = getTicketsStore();
-  const cleanId = ticketId.trim().toUpperCase();
-  const cleanEmail = email ? email.trim().toLowerCase() : null;
+  const cleanId = (ticketId || '').trim().toUpperCase();
   const cleanInput = (otpOrToken || '').trim();
 
   const record = (store.verificationTokens || []).find((t) => {
     if (t.ticketId.toUpperCase() !== cleanId) return false;
-    if (cleanEmail && t.email.toLowerCase() !== cleanEmail) return false;
     if (t.used) return false;
     if (new Date(t.expiresAt).getTime() < Date.now()) return false;
     return t.otpCode === cleanInput || t.magicToken === cleanInput;

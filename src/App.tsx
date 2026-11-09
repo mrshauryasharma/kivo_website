@@ -16,15 +16,12 @@ import { EarlyAccessModal } from './components/EarlyAccessModal';
 import { SupportModal } from './components/SupportModal';
 import { TicketTrackingPortal } from './components/TicketTrackingPortal';
 import { UpdateCenter } from './components/UpdateCenter';
-import { CustomerAccountModal } from './components/CustomerAccountModal';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { AdminPanel } from './components/AdminPanel';
 import { CmsProvider } from './context/CmsContext';
 
 export function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
-  const [customerAccountOpen, setCustomerAccountOpen] = useState(false);
 
   // Listen for browser navigation (back/forward) and custom navigation
   useEffect(() => {
@@ -33,18 +30,6 @@ export function App() {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Fetch initial customer auth state
-  useEffect(() => {
-    fetch('/api/customer/me')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.authenticated && data.user) {
-          setCurrentUser(data.user);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   const navigateTo = (path: string) => {
@@ -127,8 +112,6 @@ export function App() {
             onOpenLegal={handleOpenLegal}
             onOpenSupport={handleOpenSupport}
             onNavigate={navigateTo}
-            onOpenAccount={() => setCustomerAccountOpen(true)}
-            currentUser={currentUser}
           />
 
           {/* Main Landing Page Sections */}
@@ -179,16 +162,6 @@ export function App() {
             isOpen={supportModalOpen}
             onClose={() => setSupportModalOpen(false)}
             onNavigateTrack={(ticketId) => navigateTo(`/track-ticket?ticketId=${encodeURIComponent(ticketId)}`)}
-          />
-
-          <CustomerAccountModal
-            isOpen={customerAccountOpen}
-            onClose={() => setCustomerAccountOpen(false)}
-            onNavigateTrackTicket={(ticketId) =>
-              navigateTo(ticketId ? `/track-ticket?ticketId=${encodeURIComponent(ticketId)}` : '/track-ticket')
-            }
-            onOpenSupportModal={() => setSupportModalOpen(true)}
-            onUserChange={(u) => setCurrentUser(u)}
           />
         </div>
       </MotionConfig>

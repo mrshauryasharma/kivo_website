@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Download, LifeBuoy, User } from 'lucide-react';
+import { Menu, X, Download, LifeBuoy } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
 import { MagneticButton } from './MagneticButton';
 
@@ -8,15 +8,11 @@ interface NavbarProps {
   onOpenLegal?: (tab: 'privacy' | 'terms') => void;
   onOpenSupport?: () => void;
   onNavigate?: (path: string) => void;
-  onOpenAccount?: () => void;
-  currentUser?: { name: string; email: string } | null;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenSupport,
   onNavigate,
-  onOpenAccount,
-  currentUser,
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -131,17 +127,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               Updates
             </a>
 
-            {onOpenAccount && (
-              <button
-                type="button"
-                onClick={onOpenAccount}
-                className="text-xs font-semibold text-slate-200 hover:text-white px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 transition-colors flex items-center gap-1.5"
-              >
-                <User className="w-3.5 h-3.5 text-kivo-cyan" />
-                <span>{currentUser ? currentUser.name.split(' ')[0] : 'Sign In'}</span>
-              </button>
-            )}
-
             <MagneticButton strength={0.15}>
               <a
                 href="#download"
@@ -225,19 +210,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 Browser Updates & Notes
               </a>
-
-              {onOpenAccount && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenAccount();
-                  }}
-                  className="block w-full text-left px-4 py-2.5 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-white/[0.06] transition-colors"
-                >
-                  {currentUser ? `Account: ${currentUser.name}` : 'Sign In / Register'}
-                </button>
-              )}
 
               {onOpenSupport && (
                 <button

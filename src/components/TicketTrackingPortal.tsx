@@ -11,7 +11,6 @@ import {
   Download,
   Eye,
   ArrowLeft,
-  RotateCcw,
   RefreshCw,
   X,
   Trash2,
@@ -113,7 +112,7 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
     setInfoMessage(null);
 
     if (!ticketIdInput.trim() || !emailInput.trim()) {
-      setErrorMessage('Please provide both your Ticket ID and registered email address.');
+      setErrorMessage('Please provide both your Ticket ID and registered email or mobile number.');
       return;
     }
 
@@ -124,7 +123,7 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketId: ticketIdInput.trim().toUpperCase(),
-          email: emailInput.trim(),
+          identifier: emailInput.trim(),
         }),
       });
 
@@ -133,7 +132,7 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
         throw new Error(data.error || 'Verification request rejected.');
       }
 
-      setInfoMessage(data.message || 'Verification code sent to your email.');
+      setInfoMessage(data.message || 'Verification code sent to your registered email.');
       setStep('otp');
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to request verification code.');
@@ -158,7 +157,7 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketId: ticketIdInput.trim().toUpperCase(),
-          email: emailInput.trim(),
+          identifier: emailInput.trim(),
           otpOrToken: otpInput.trim(),
         }),
       });
@@ -380,14 +379,14 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Registered Email Address
+                      Registered Email or Mobile Number
                     </label>
                     <input
-                      type="email"
+                      type="text"
                       required
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="alex@example.com"
+                      placeholder="alex@example.com or +1 555 123 4567"
                       className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan"
                     />
                   </div>
@@ -499,20 +498,31 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
 
                 <div className="flex flex-wrap items-center gap-6 text-xs text-slate-400 pt-2 border-t border-white/[0.06]">
                   <div>Category: <span className="text-white font-medium">{ticket.category}</span></div>
+                  <div>Priority: <span className="text-white font-medium">{ticket.priority || 'Normal'}</span></div>
                   <div>Submitted: <span className="text-white font-medium">{new Date(ticket.createdAt).toLocaleString()}</span></div>
                   <div>Registered Email: <span className="text-slate-300 font-mono">{ticket.email}</span></div>
+                  {ticket.phone && (
+                    <div>Registered Mobile: <span className="text-slate-300 font-mono">{ticket.phone}</span></div>
+                  )}
                 </div>
               </div>
 
-              {/* CLOSED TICKET REOPENING BANNER */}
+              {/* PERMANENTLY CLOSED TICKET BANNER */}
               {ticket.status === 'Closed' && (
-                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-200">
+                <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-300">
                   <div className="flex items-center gap-2.5">
-                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     <span>
-                      <strong>This ticket is currently Closed.</strong> If you still need help or have follow-up questions, send a new message below to automatically reopen this ticket.
+                      <strong className="text-white">This ticket is permanently closed.</strong> Once closed, tickets cannot be reopened. If you are experiencing this issue again or need further assistance, please submit a new ticket.
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={onNavigateHome}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-kivo-blue to-kivo-cyan text-white font-semibold text-xs shrink-0 hover:opacity-95 transition-opacity"
+                  >
+                    Submit New Ticket
+                  </button>
                 </div>
               )}
 
@@ -602,100 +612,114 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
                 </div>
               </div>
 
-              {/* Reply Box (Allows sending new message and reopening closed ticket) */}
-              <div className="p-6 rounded-3xl bg-gradient-to-b from-[#0F1628]/90 to-[#070B14]/95 border border-white/10 shadow-xl">
-                <form onSubmit={handleSendReply} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-white uppercase tracking-wider">
-                      {ticket.status === 'Closed' ? 'Reopen Ticket / Send New Message' : 'Send a Reply to KIVO Support'}
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      Replies are received directly by our engineers.
-                    </span>
+              {/* Reply Box or Permanent Closure Notice */}
+              {ticket.status === 'Closed' ? (
+                <div className="p-8 rounded-3xl bg-black/40 border border-white/10 text-center space-y-4 shadow-xl">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-slate-400">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-400" />
                   </div>
-
-                  <textarea
-                    rows={4}
-                    required
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder={
-                      ticket.status === 'Closed'
-                        ? 'Describe any further problem or update to reopen this ticket...'
-                        : 'Write your follow-up message or provide additional details...'
-                    }
-                    className="w-full px-4 py-3 rounded-2xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan resize-none"
-                  />
-
-                  {/* Multiple Attachments in Reply */}
-                  <div>
-                    {replyAttachments.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {replyAttachments.map((att, idx) => (
-                          <div
-                            key={idx}
-                            className="p-2 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between text-xs"
-                          >
-                            <span className="truncate max-w-[250px] text-slate-200">{att.name}</span>
-                            <div className="flex items-center gap-2">
-                              {att.data ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                              ) : (
-                                <span className="text-[10px] font-mono text-kivo-cyan">{att.progress}%</span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))
-                                }
-                                className="text-slate-400 hover:text-rose-400"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-dashed border-white/20 hover:border-kivo-cyan/50 hover:bg-white/[0.02] cursor-pointer text-xs text-slate-300 transition-colors">
-                      <Paperclip className="w-3.5 h-3.5 text-kivo-cyan" />
-                      <span>Attach files to reply</span>
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleReplyFilesSelected}
-                        className="hidden"
-                      />
-                    </label>
+                  <div className="space-y-1">
+                    <h4 className="text-base font-bold text-white">This Ticket is Permanently Closed</h4>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                      Our engineering and support team has resolved and closed this inquiry. As per our security and retention policy, closed tickets cannot be reopened. If you have a new question or need further assistance, please submit a new support ticket.
+                    </p>
                   </div>
-
-                  <div className="flex justify-end pt-2">
+                  <div className="pt-2">
                     <button
-                      type="submit"
-                      disabled={isSubmittingReply || replyAttachments.some((a) => !a.data)}
-                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple text-white text-xs font-bold shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                      type="button"
+                      onClick={onNavigateHome}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple text-white text-xs font-bold shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-opacity"
                     >
-                      {isSubmittingReply ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Sending Message...</span>
-                        </>
-                      ) : ticket.status === 'Closed' ? (
-                        <>
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Reopen & Send Message</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3.5 h-3.5" />
-                          <span>Post Reply</span>
-                        </>
-                      )}
+                      Submit a New Ticket
                     </button>
                   </div>
-                </form>
-              </div>
+                </div>
+              ) : (
+                <div className="p-6 rounded-3xl bg-gradient-to-b from-[#0F1628]/90 to-[#070B14]/95 border border-white/10 shadow-xl">
+                  <form onSubmit={handleSendReply} className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-white uppercase tracking-wider">
+                        Send a Reply to KIVO Support
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        Replies are received directly by our engineers.
+                      </span>
+                    </div>
+
+                    <textarea
+                      rows={4}
+                      required
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Write your follow-up message or provide additional details..."
+                      className="w-full px-4 py-3 rounded-2xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan resize-none"
+                    />
+
+                    {/* Multiple Attachments in Reply */}
+                    <div>
+                      {replyAttachments.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {replyAttachments.map((att, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between text-xs"
+                            >
+                              <span className="truncate max-w-[250px] text-slate-200">{att.name}</span>
+                              <div className="flex items-center gap-2">
+                                {att.data ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                ) : (
+                                  <span className="text-[10px] font-mono text-kivo-cyan">{att.progress}%</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))
+                                  }
+                                  className="text-slate-400 hover:text-rose-400"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-dashed border-white/20 hover:border-kivo-cyan/50 hover:bg-white/[0.02] cursor-pointer text-xs text-slate-300 transition-colors">
+                        <Paperclip className="w-3.5 h-3.5 text-kivo-cyan" />
+                        <span>Attach files to reply</span>
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleReplyFilesSelected}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingReply || replyAttachments.some((a) => !a.data)}
+                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple text-white text-xs font-bold shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {isSubmittingReply ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Sending Message...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Post Reply</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </motion.div>
           )
         )}

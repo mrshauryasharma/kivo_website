@@ -29,6 +29,7 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
 
   // Reply state
   const [replyText, setReplyText] = useState('');
@@ -54,6 +55,7 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
       if (search) params.append('search', search);
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter);
+      if (priorityFilter && priorityFilter !== 'all') params.append('priority', priorityFilter);
 
       const res = await fetch(`/api/admin/tickets?${params.toString()}`, {
         headers: { 'X-CSRF-Token': csrfToken },
@@ -77,7 +79,7 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
 
   useEffect(() => {
     fetchTickets();
-  }, [statusFilter, categoryFilter]);
+  }, [statusFilter, categoryFilter, priorityFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,11 +118,56 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
         const data = await res.json();
         setSelectedTicket(data.ticket);
         fetchTickets();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update ticket status.');
       }
     } catch {
       alert('Failed to update ticket status.');
     } finally {
       setStatusUpdating(false);
+    }
+  };
+
+  const handlePriorityChange = async (newPriority: string) => {
+    if (!selectedTicket) return;
+    try {
+      const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/priority`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({ priority: newPriority }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedTicket(data.ticket);
+        fetchTickets();
+      }
+    } catch {
+      alert('Failed to update priority.');
+    }
+  };
+
+  const handleAssigneeChange = async (newAssignee: string) => {
+    if (!selectedTicket) return;
+    try {
+      const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/assignee`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({ assignee: newAssignee }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedTicket(data.ticket);
+        fetchTickets();
+      }
+    } catch {
+      alert('Failed to update assignee.');
     }
   };
 
@@ -330,7 +377,7 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
           />
         </form>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -338,10 +385,23 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
           >
             <option value="all">All Statuses</option>
             <option value="Open">Open</option>
-            <option value="Reopened">Reopened</option>
             <option value="In Progress">In Progress</option>
             <option value="Waiting for Customer">Waiting for Customer</option>
+            <option value="Waiting for Support">Waiting for Support</option>
+            <option value="Resolved">Resolved</option>
             <option value="Closed">Closed</option>
+          </select>
+
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-white focus:outline-none focus:border-kivo-cyan"
+          >
+            <option value="all">All Priorities</option>
+            <option value="Low">Low</option>
+            <option value="Normal">Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
           </select>
 
           <select
@@ -438,25 +498,57 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
                   </h3>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400">Status:</span>
-                  <select
-                    disabled={statusUpdating}
-                    value={selectedTicket.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/20 text-xs text-white focus:outline-none focus:border-kivo-cyan"
-                  >
-                    <option value="Open">Open</option>
-                    <option value="Reopened">Reopened</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Waiting for Customer">Waiting for Customer</option>
-                    <option value="Closed">Closed</option>
-                  </select>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">Status:</span>
+                    <select
+                      disabled={statusUpdating}
+                      value={selectedTicket.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/20 text-xs text-white focus:outline-none focus:border-kivo-cyan"
+                    >
+                      <option value="Open">Open</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Waiting for Customer">Waiting for Customer</option>
+                      <option value="Waiting for Support">Waiting for Support</option>
+                      <option value="Resolved">Resolved</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">Priority:</span>
+                    <select
+                      value={selectedTicket.priority || 'Normal'}
+                      onChange={(e) => handlePriorityChange(e.target.value)}
+                      className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/20 text-xs text-white focus:outline-none focus:border-kivo-cyan"
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Normal">Normal</option>
+                      <option value="High">High</option>
+                      <option value="Urgent">Urgent</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">Assignee:</span>
+                    <select
+                      value={selectedTicket.assignee || 'Unassigned'}
+                      onChange={(e) => handleAssigneeChange(e.target.value)}
+                      className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/20 text-xs text-white focus:outline-none focus:border-kivo-cyan"
+                    >
+                      <option value="Unassigned">Unassigned</option>
+                      <option value="KIVO Support Lead">KIVO Support Lead</option>
+                      <option value="Tier 2 Engineering">Tier 2 Engineering</option>
+                      <option value="Security Team">Security Team</option>
+                      <option value="QA Team">QA Team</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Customer Details Card */}
-              <div className="p-4 rounded-2xl bg-black/40 border border-white/[0.08] grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-4 rounded-2xl bg-black/40 border border-white/[0.08] grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Customer</span>
                   <span className="font-semibold text-white">{selectedTicket.name}</span>
@@ -471,9 +563,18 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
                   </a>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Phone</span>
-                  <span className="font-semibold text-white">
-                    {selectedTicket.phone || 'Not provided'}
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Mandatory Mobile</span>
+                  <a
+                    href={`tel:${selectedTicket.phone}`}
+                    className="font-mono font-bold text-emerald-400 hover:underline block"
+                  >
+                    {selectedTicket.phone || 'Missing'}
+                  </a>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Priority & Assignee</span>
+                  <span className="text-slate-200">
+                    {selectedTicket.priority || 'Normal'} • {selectedTicket.assignee || 'Unassigned'}
                   </span>
                 </div>
                 <div>
