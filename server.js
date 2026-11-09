@@ -52,6 +52,7 @@ import {
   handleAdminUpdateStatus,
   handleAdminUpdatePriority,
   handleAdminUpdateAssignee,
+  handleAdminDeleteTicket,
   handleRetryEmail,
   handleStreamAttachment,
 } from './server/tickets.js';
@@ -395,6 +396,7 @@ app.post('/api/admin/tickets/:id/note', requireAdminAuth, handleAdminAddNote);
 app.patch('/api/admin/tickets/:id/status', requireAdminAuth, handleAdminUpdateStatus);
 app.patch('/api/admin/tickets/:id/priority', requireAdminAuth, handleAdminUpdatePriority);
 app.patch('/api/admin/tickets/:id/assignee', requireAdminAuth, handleAdminUpdateAssignee);
+app.delete('/api/admin/tickets/:id', requireAdminAuth, handleAdminDeleteTicket);
 app.post('/api/admin/tickets/:id/retry-email', requireAdminAuth, handleRetryEmail);
 app.get('/api/admin/tickets/:id/attachment/:filename', requireAdminAuth, handleStreamAttachment);
 

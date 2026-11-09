@@ -1,4 +1,5 @@
 {
   "tickets": [],
-  "verificationTokens": []
+  "verificationTokens": [],
+  "ticketSequenceCounter": 9
 }

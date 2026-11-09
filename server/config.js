@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -272,15 +273,25 @@ export const GODADDY_MAX_STORAGE_BYTES = 25 * 1024 * 1024 * 1024; // 25 GB
 export const SAFE_STORAGE_CAP_BYTES = 23.5 * 1024 * 1024 * 1024; // 23.5 GB safety threshold
 export const MIN_FREE_DISK_BYTES = 500 * 1024 * 1024; // 500 MB minimum reserve
 
+// Helper for Windows User Environment fallback (local test / staging parity)
+function getWinUserEnv(key) {
+  if (process.platform !== 'win32') return '';
+  try {
+    return execSync(`powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('${key}', 'User')"`, { encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
 // MySQL Database Configuration (GoDaddy cPanel / Managed MySQL)
 export function getMysqlConfig() {
-  const host = process.env.DB_HOST || process.env.MYSQL_HOST || '';
-  const user = process.env.DB_USER || process.env.MYSQL_USER || '';
-  const password = process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || '';
-  const database = process.env.DB_NAME || process.env.MYSQL_DATABASE || '';
-  const port = Number(process.env.DB_PORT || process.env.MYSQL_PORT) || 3306;
+  const host = process.env.DB_HOST || process.env.MYSQL_HOST || getWinUserEnv('DB_HOST');
+  const user = process.env.DB_USER || process.env.MYSQL_USER || getWinUserEnv('DB_USER');
+  const password = process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || getWinUserEnv('DB_PASSWORD');
+  const database = process.env.DB_NAME || process.env.MYSQL_DATABASE || getWinUserEnv('DB_NAME');
+  const port = Number(process.env.DB_PORT || process.env.MYSQL_PORT || getWinUserEnv('DB_PORT')) || 3306;
 
-  const isConfigured = Boolean(host && user && database);
+  const isConfigured = Boolean(host && user && database && password);
 
   return {
     isConfigured,

@@ -127,6 +127,7 @@ export async function migrateJsonToMysql(pool) {
     if (fs.existsSync(METADATA_FILE)) {
       const meta = JSON.parse(fs.readFileSync(METADATA_FILE, 'utf8'));
       for (const [platform, item] of Object.entries(meta)) {
+        if (!item || typeof item !== 'object') continue;
         await connection.query(
           `INSERT INTO kivo_installers_metadata 
             (platform, name, architecture, filename, version, size_bytes, sha256, file_path, download_url, uploaded_at)
@@ -166,14 +167,14 @@ export async function migrateJsonToMysql(pool) {
       if (Array.isArray(cms.history)) {
         for (const h of cms.history) {
           await connection.query(
-            `INSERT INTO kivo_cms_history (id, section_key, content_json, author, comment, created_at)
+            `INSERT INTO kivo_cms_history (id, section_key, content_json, author, action_type, created_at)
              VALUES (?, 'website_root', ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE comment = VALUES(comment)`,
+             ON DUPLICATE KEY UPDATE action_type = VALUES(action_type)`,
             [
               h.id || `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
               JSON.stringify(h.content || {}),
               h.author || 'admin',
-              h.comment || 'Imported revision',
+              h.actionType || h.action_type || h.comment || 'revision',
               new Date(h.timestamp || Date.now()),
             ]
           );
@@ -189,21 +190,22 @@ export async function migrateJsonToMysql(pool) {
           // Ticket Master
           await connection.query(
             `INSERT INTO kivo_support_tickets 
-              (id, customer_token, name, email, phone, category, subject, description, status, priority, created_at, updated_at, last_response_at)
+              (id, name, email, phone, category, subject, description, status, priority, assignee, created_at, updated_at, last_response_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE 
-              name = VALUES(name), status = VALUES(status), priority = VALUES(priority), updated_at = VALUES(updated_at)`,
+              name = VALUES(name), email = VALUES(email), phone = VALUES(phone), status = VALUES(status),
+              priority = VALUES(priority), assignee = VALUES(assignee), updated_at = VALUES(updated_at)`,
             [
               t.id,
-              t.customerToken || `tok_${Math.random().toString(36).slice(2)}`,
-              t.name,
-              t.email,
-              t.phone || null,
+              t.name || 'Customer',
+              t.email || 'customer@example.com',
+              t.phone || '',
               t.category || 'General Feedback',
               t.subject || 'Support Request',
               t.description || '',
               t.status || 'Open',
               t.priority || 'Normal',
+              t.assignee || 'Unassigned',
               new Date(t.createdAt || Date.now()),
               new Date(t.updatedAt || Date.now()),
               t.lastResponseAt ? new Date(t.lastResponseAt) : null,
@@ -215,16 +217,17 @@ export async function migrateJsonToMysql(pool) {
             for (const m of t.messages) {
               const msgId = m.id || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
               await connection.query(
-                `INSERT INTO kivo_ticket_messages (id, ticket_id, sender_type, sender_name, message_text, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?)
+                `INSERT INTO kivo_ticket_messages (id, ticket_id, sender, sender_type, message_text, email_status, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE message_text = VALUES(message_text)`,
                 [
                   msgId,
                   t.id,
+                  m.sender || m.senderName || t.name || 'Customer',
                   m.senderType || 'customer',
-                  m.senderName || t.name,
-                  m.text || '',
-                  new Date(m.timestamp || Date.now()),
+                  m.text || m.message_text || '',
+                  m.emailStatus || 'pending',
+                  new Date(m.timestamp || m.createdAt || Date.now()),
                 ]
               );
 
@@ -233,19 +236,19 @@ export async function migrateJsonToMysql(pool) {
                 for (const att of m.attachments) {
                   const attId = att.id || `att_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
                   await connection.query(
-                    `INSERT INTO kivo_ticket_attachments (id, ticket_id, message_id, original_name, stored_name, mime_type, size_bytes, file_path, created_at)
+                    `INSERT INTO kivo_ticket_attachments (id, ticket_id, message_id, filename, original_name, mime_type, size_bytes, file_path, created_at)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE original_name = VALUES(original_name)`,
                     [
                       attId,
                       t.id,
                       msgId,
-                      att.originalName || att.filename || 'attachment',
                       att.filename || 'stored_file',
+                      att.originalName || att.filename || 'attachment',
                       att.mimeType || 'application/octet-stream',
                       att.size || 0,
                       att.filePath || '',
-                      new Date(att.uploadedAt || Date.now()),
+                      new Date(att.uploadedAt || att.createdAt || Date.now()),
                     ]
                   );
                 }
@@ -268,7 +271,7 @@ export async function migrateJsonToMysql(pool) {
                   sh.to || 'Open',
                   sh.changedBy || 'customer',
                   sh.reason || null,
-                  new Date(sh.timestamp || Date.now()),
+                  new Date(sh.timestamp || sh.createdAt || Date.now()),
                 ]
               );
             }
@@ -286,8 +289,8 @@ export async function migrateJsonToMysql(pool) {
                   noteId,
                   t.id,
                   n.author || 'Staff',
-                  n.note || n.text || '',
-                  new Date(n.timestamp || Date.now()),
+                  n.text || n.note || '',
+                  new Date(n.timestamp || n.createdAt || Date.now()),
                 ]
               );
             }
@@ -300,16 +303,18 @@ export async function migrateJsonToMysql(pool) {
         for (const vt of tStore.verificationTokens) {
           const vtId = vt.id || `vt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
           await connection.query(
-            `INSERT INTO kivo_ticket_verification_tokens (id, ticket_id, email, otp_code, magic_token, expires_at, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO kivo_ticket_verification_tokens (id, ticket_id, email, phone, otp_code, magic_token, used, expires_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE otp_code = VALUES(otp_code)`,
             [
               vtId,
               vt.ticketId,
               vt.email || '',
+              vt.phone || '',
               vt.otpCode || vt.otp || '',
               vt.magicToken || '',
-              vt.expiresAt || 0,
+              vt.used ? 1 : 0,
+              new Date(vt.expiresAt || Date.now() + 15 * 60 * 1000),
               new Date(vt.createdAt || Date.now()),
             ]
           );

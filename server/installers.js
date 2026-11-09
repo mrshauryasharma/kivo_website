@@ -10,6 +10,7 @@ import {
   getStoredMetadata,
   saveStoredMetadata,
 } from './db.js';
+import { deleteInstallerMetadataFromMysql } from './mysql.js';
 
 // Load metadata from persistent database
 export function getMetadata() {
@@ -75,6 +76,7 @@ export function deleteInstaller(platform) {
 
   metadata[platform] = null;
   saveMetadata(metadata);
+  deleteInstallerMetadataFromMysql(platform).catch(() => {});
   return true;
 }
 

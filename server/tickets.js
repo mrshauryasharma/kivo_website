@@ -17,6 +17,7 @@ import {
   updateSupportTicketStatus,
   updateSupportTicketPriority,
   updateSupportTicketAssignee,
+  deleteSupportTicket,
   getTicketsStore,
   createVerificationToken,
   verifyCustomerAccess,
@@ -590,6 +591,16 @@ export async function handleAdminUpdateAssignee(req, res) {
     res.status(200).json({ success: true, ticket: updated });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Failed to update assignee.' });
+  }
+}
+
+export async function handleAdminDeleteTicket(req, res) {
+  try {
+    const { id } = req.params;
+    const deleted = deleteSupportTicket(id);
+    res.status(200).json({ success: true, message: `Ticket ${id} permanently removed.`, deletedTicket: deleted });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to delete ticket.' });
   }
 }
 

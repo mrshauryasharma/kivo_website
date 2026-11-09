@@ -86,25 +86,31 @@ export async function createTablesIfNotExist() {
     // 4. Support Tickets
     `CREATE TABLE IF NOT EXISTS kivo_support_tickets (
       id VARCHAR(32) PRIMARY KEY,
-      customer_name VARCHAR(255) NOT NULL,
-      customer_email VARCHAR(255) NOT NULL,
-      customer_phone VARCHAR(64),
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      phone VARCHAR(64) NOT NULL,
       category VARCHAR(64) NOT NULL,
       subject VARCHAR(255) NOT NULL,
+      description LONGTEXT,
       status VARCHAR(32) NOT NULL DEFAULT 'Open',
+      priority VARCHAR(32) NOT NULL DEFAULT 'Normal',
+      assignee VARCHAR(128) DEFAULT 'Unassigned',
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,
+      last_response_at DATETIME,
       INDEX idx_status (status),
-      INDEX idx_email (customer_email)
+      INDEX idx_email (email),
+      INDEX idx_priority (priority)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
     // 5. Ticket Messages
     `CREATE TABLE IF NOT EXISTS kivo_ticket_messages (
       id VARCHAR(64) PRIMARY KEY,
       ticket_id VARCHAR(32) NOT NULL,
+      sender VARCHAR(255) NOT NULL,
       sender_type VARCHAR(16) NOT NULL,
-      sender_name VARCHAR(255) NOT NULL,
       message_text LONGTEXT NOT NULL,
+      email_status VARCHAR(32) DEFAULT 'pending',
       created_at DATETIME NOT NULL,
       INDEX idx_ticket (ticket_id),
       FOREIGN KEY (ticket_id) REFERENCES kivo_support_tickets(id) ON DELETE CASCADE
@@ -119,7 +125,7 @@ export async function createTablesIfNotExist() {
       original_name VARCHAR(255) NOT NULL,
       mime_type VARCHAR(128) NOT NULL,
       size_bytes BIGINT NOT NULL,
-      file_path VARCHAR(512) NOT NULL,
+      file_path VARCHAR(512),
       created_at DATETIME NOT NULL,
       INDEX idx_ticket_att (ticket_id),
       FOREIGN KEY (ticket_id) REFERENCES kivo_support_tickets(id) ON DELETE CASCADE
@@ -153,10 +159,12 @@ export async function createTablesIfNotExist() {
     `CREATE TABLE IF NOT EXISTS kivo_ticket_verification_tokens (
       id VARCHAR(64) PRIMARY KEY,
       ticket_id VARCHAR(32) NOT NULL,
-      email VARCHAR(255) NOT NULL,
+      email VARCHAR(255),
+      phone VARCHAR(64),
       otp_code VARCHAR(16) NOT NULL,
       magic_token VARCHAR(128) NOT NULL,
-      expires_at BIGINT NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      expires_at DATETIME NOT NULL,
       created_at DATETIME NOT NULL,
       INDEX idx_ticket_token (ticket_id),
       FOREIGN KEY (ticket_id) REFERENCES kivo_support_tickets(id) ON DELETE CASCADE
@@ -173,7 +181,6 @@ export async function createTablesIfNotExist() {
       resend_id VARCHAR(128),
       error_message TEXT,
       created_at DATETIME NOT NULL,
-      retried_at DATETIME,
       INDEX idx_ticket_email (ticket_id),
       FOREIGN KEY (ticket_id) REFERENCES kivo_support_tickets(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
@@ -257,5 +264,94 @@ export async function checkMysqlHealth() {
       error: err.message,
       message: `MySQL connection error: ${err.message}`,
     };
+  }
+}
+
+// -------------------------------------------------------------
+// Installer Metadata MySQL Synchronization Helpers
+// -------------------------------------------------------------
+export async function syncInstallerMetadataToMysql(meta) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool || !meta || typeof meta !== 'object') return;
+
+    for (const [platform, item] of Object.entries(meta)) {
+      if (!item || typeof item !== 'object') continue;
+      await currentPool.query(
+        `INSERT INTO kivo_installers_metadata 
+          (platform, name, architecture, filename, version, size_bytes, sha256, file_path, download_url, uploaded_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+          name = VALUES(name), architecture = VALUES(architecture), filename = VALUES(filename),
+          version = VALUES(version), size_bytes = VALUES(size_bytes), sha256 = VALUES(sha256),
+          file_path = VALUES(file_path), download_url = VALUES(download_url), uploaded_at = VALUES(uploaded_at)`,
+        [
+          platform,
+          item.name || platform,
+          item.architecture || 'x64',
+          item.filename || 'installer',
+          item.version || '1.0.0',
+          item.size || 0,
+          item.sha256 || '',
+          item.filePath || '',
+          item.downloadUrl || '',
+          new Date(item.uploadedAt || Date.now()),
+        ]
+      );
+    }
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error syncing installer metadata:', err.message);
+  }
+}
+
+export async function loadInstallerMetadataFromMysql() {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return null;
+
+    const [rows] = await currentPool.query('SELECT * FROM kivo_installers_metadata');
+    if (!rows || rows.length === 0) return null;
+
+    const result = {};
+    for (const row of rows) {
+      result[row.platform] = {
+        name: row.name,
+        architecture: row.architecture,
+        filename: row.filename,
+        version: row.version,
+        size: Number(row.size_bytes),
+        sha256: row.sha256,
+        filePath: row.file_path,
+        downloadUrl: row.download_url,
+        uploadedAt: new Date(row.uploaded_at).toISOString(),
+        retention: 'permanent',
+        retentionPolicy: 'indefinite_until_manual_removal',
+        autoDelete: false,
+      };
+    }
+    return result;
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error loading installer metadata from MySQL:', err.message);
+    return null;
+  }
+}
+
+export async function deleteInstallerMetadataFromMysql(platform) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return;
+    await currentPool.query('DELETE FROM kivo_installers_metadata WHERE platform = ?', [platform]);
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error deleting installer metadata from MySQL:', err.message);
+  }
+}
+
+export async function deleteTicketFromMysql(ticketId) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return;
+    await currentPool.query('DELETE FROM kivo_support_tickets WHERE id = ?', [ticketId]);
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error deleting ticket from MySQL:', err.message);
   }
 }

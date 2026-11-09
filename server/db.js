@@ -12,6 +12,7 @@ import {
   resolveInstallerFilePath,
   INSTALLER_RETENTION_POLICY,
 } from './config.js';
+import { syncInstallerMetadataToMysql, deleteTicketFromMysql } from './mysql.js';
 
 // -------------------------------------------------------------
 // Helper: Safe Atomic File I/O with Automatic Backups
@@ -766,6 +767,29 @@ export function updateSupportTicketAssignee(ticketId, assignee) {
   return ticket;
 }
 
+export function deleteSupportTicket(ticketId) {
+  const store = getTicketsStore();
+  const cleanId = (ticketId || '').trim().toUpperCase();
+  const index = store.tickets.findIndex((t) => t.id.toUpperCase() === cleanId);
+  if (index === -1) {
+    throw new Error(`Ticket ${ticketId} not found.`);
+  }
+
+  const [removed] = store.tickets.splice(index, 1);
+
+  // Clean related verification tokens
+  store.verificationTokens = (store.verificationTokens || []).filter(
+    (vt) => vt.ticketId.toUpperCase() !== cleanId
+  );
+
+  writeJsonAtomically(TICKETS_FILE, store);
+
+  // Sync delete with MySQL if connected
+  deleteTicketFromMysql(cleanId).catch(() => {});
+
+  return removed;
+}
+
 export function addSupportTicketNote(ticketId, { author = 'Admin', text }) {
   const store = getTicketsStore();
   const ticket = store.tickets.find((t) => t.id === ticketId);
@@ -978,6 +1002,10 @@ export function saveStoredMetadata(meta) {
     }
   }
   writeJsonAtomically(METADATA_FILE, meta);
+  // Asynchronously mirror metadata to MySQL database
+  syncInstallerMetadataToMysql(meta).catch((err) => {
+    console.warn('[KIVO DB] Notice: installer metadata mirror to MySQL skipped:', err.message);
+  });
 }
 
 

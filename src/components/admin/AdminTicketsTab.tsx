@@ -171,6 +171,29 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
     }
   };
 
+  const handleDeleteTicket = async (ticketId: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete ticket ${ticketId}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
+      });
+      if (res.ok) {
+        setSelectedTicket(null);
+        fetchTickets();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete ticket.');
+      }
+    } catch {
+      alert('Network error while deleting ticket.');
+    }
+  };
+
   // Upload admin reply attachment
   const uploadAdminFile = async (file: File): Promise<SupportTicketAttachment> => {
     return new Promise((resolve, reject) => {
@@ -544,6 +567,15 @@ export const AdminTicketsTab: React.FC<AdminTicketsTabProps> = ({ csrfToken }) =
                       <option value="QA Team">QA Team</option>
                     </select>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTicket(selectedTicket.id)}
+                    title="Permanently Delete Ticket"
+                    className="p-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
