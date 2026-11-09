@@ -139,7 +139,33 @@ async function runDeploy() {
       }
 
       if (shouldPublish) {
-        console.log(`\n[Step 5] Triggering New Production Deployment from GitHub on App ${appId}...`);
+        console.log(`\n[Step 5] Triggering GitHub Import for App ${appId}...`);
+        const importRes = await godaddyRequest(`/v1/hosting/apps/${appId}/imports`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            repositoryFullName: 'mrshauryasharma/kivo_website',
+            branch: 'main',
+          }),
+        });
+
+        console.log(`  - Import Trigger Response: Status ${importRes.status}`, importRes.data);
+        const importId = importRes.data?.importId || importRes.data?.id;
+
+        if (importId) {
+          console.log(`  - Polling import status for ${importId}...`);
+          for (let i = 0; i < 20; i++) {
+            await new Promise((r) => setTimeout(r, 4000));
+            const pollImport = await godaddyRequest(`/v1/hosting/apps/${appId}/imports/${importId}`);
+            const st = pollImport.data?.status;
+            console.log(`    [Import Poll ${i + 1}] Status: ${st}`);
+            if (st === 'COMPLETED' || st === 'SUCCESS' || st === 'FAILED') break;
+          }
+        }
+
+        console.log(`\n[Step 6] Triggering Production Deployment (Promoting Preview to Publish)...`);
         const deployRes = await godaddyRequest(`/v1/hosting/apps/${appId}/deployments`, {
           method: 'POST',
           headers: {
@@ -157,7 +183,7 @@ async function runDeploy() {
             const pollRes = await godaddyRequest(`/v1/hosting/apps/${appId}/deployments/${newDepId}`);
             if (pollRes.status === 200) {
               const status = pollRes.data?.status;
-              console.log(`    [Poll ${i + 1}] Status: ${status} (git commit: ${pollRes.data?.gitCommitHash || 'pending'})`);
+              console.log(`    [Deploy Poll ${i + 1}] Status: ${status} (git commit: ${pollRes.data?.gitCommitHash || pollRes.data?.gitHash || 'pending'})`);
               if (status === 'COMPLETED' || status === 'FAILED' || status === 'ERROR') {
                 break;
               }
