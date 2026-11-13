@@ -1,5 +1,7 @@
 import mysql from 'mysql2/promise';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getMysqlConfig } from './config.js';
 
 let pool = null;
@@ -90,6 +92,20 @@ export async function createTablesIfNotExist() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_hist_platform (platform),
       INDEX idx_hist_action (action)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    // 1c. Permanent Binary Chunk Storage in MySQL (Survives Container Restarts & Ephemeral Disk Wipe)
+    `CREATE TABLE IF NOT EXISTS kivo_installer_binary_chunks (
+      id VARCHAR(64) PRIMARY KEY,
+      platform VARCHAR(32) NOT NULL,
+      version VARCHAR(32) NOT NULL,
+      chunk_index INT NOT NULL,
+      chunk_size INT NOT NULL,
+      chunk_data MEDIUMBLOB NOT NULL,
+      sha256 VARCHAR(64) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_plat_chunk (platform, chunk_index),
+      INDEX idx_plat_ver (platform, version)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
     // 2. CMS Content
@@ -262,6 +278,9 @@ export async function createTablesIfNotExist() {
         { name: 'retention', def: "VARCHAR(32) NOT NULL DEFAULT 'permanent'" },
         { name: 'download_count', def: 'INT NOT NULL DEFAULT 0' },
         { name: 'audit_log', def: 'LONGTEXT DEFAULT NULL' },
+        { name: 'has_db_binary', def: 'TINYINT(1) NOT NULL DEFAULT 0' },
+        { name: 'binary_total_chunks', def: 'INT NOT NULL DEFAULT 0' },
+        { name: 'binary_chunk_size', def: 'INT NOT NULL DEFAULT 2097152' },
       ];
 
       for (const col of columnDefs) {
@@ -486,6 +505,204 @@ export async function incrementDownloadCountInMysql(platform) {
       [platform]
     );
   } catch {}
+}
+
+// -------------------------------------------------------------
+// Permanent Binary Storage in MySQL (Survives Container Restarts)
+// -------------------------------------------------------------
+
+// Save completed binary file into chunked rows in MySQL
+export async function saveInstallerBinaryToMysql(platform, version, filePath, chunkSize = 2 * 1024 * 1024) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) {
+      console.warn('[KIVO MySQL] Cannot save binary: MySQL pool not available.');
+      return { success: false, error: 'MySQL not connected' };
+    }
+
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found at ${filePath}`);
+    }
+
+    const stat = fs.statSync(filePath);
+    const totalSize = stat.size;
+    console.log(`[KIVO MySQL] Storing binary in MySQL for ${platform} (${(totalSize / (1024 * 1024)).toFixed(2)} MB)...`);
+
+    // Clean any prior chunks for this platform in MySQL
+    await currentPool.query('DELETE FROM kivo_installer_binary_chunks WHERE platform = ?', [platform]);
+
+    const fd = fs.openSync(filePath, 'r');
+    const buffer = Buffer.alloc(chunkSize);
+    let bytesRead = 0;
+    let chunkIndex = 0;
+    let totalBytesStored = 0;
+
+    while ((bytesRead = fs.readSync(fd, buffer, 0, chunkSize, totalBytesStored)) > 0) {
+      const chunkPayload = Buffer.from(buffer.subarray(0, bytesRead));
+      const chunkSha = crypto.createHash('sha256').update(chunkPayload).digest('hex');
+      const chunkId = crypto.randomUUID();
+
+      await currentPool.query(
+        `INSERT INTO kivo_installer_binary_chunks 
+         (id, platform, version, chunk_index, chunk_size, chunk_data, sha256) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [chunkId, platform, version, chunkIndex, bytesRead, chunkPayload, chunkSha]
+      );
+
+      totalBytesStored += bytesRead;
+      chunkIndex++;
+    }
+
+    fs.closeSync(fd);
+
+    // Update metadata record in MySQL
+    await currentPool.query(
+      `UPDATE kivo_installers_metadata 
+       SET has_db_binary = 1, binary_total_chunks = ?, binary_chunk_size = ?, updated_at = NOW() 
+       WHERE platform = ?`,
+      [chunkIndex, chunkSize, platform]
+    );
+
+    console.log(`[KIVO MySQL] Successfully stored ${chunkIndex} chunks (${totalBytesStored} bytes) in MySQL for ${platform}!`);
+    return { success: true, totalChunks: chunkIndex, totalBytes: totalBytesStored };
+  } catch (err) {
+    console.error(`[KIVO MySQL] Failed to store binary in MySQL for ${platform}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// Check if binary chunks exist in MySQL for a platform
+export async function checkInstallerBinaryInMysql(platform) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return { exists: false, chunkCount: 0, totalBytes: 0 };
+
+    const [rows] = await currentPool.query(
+      'SELECT COUNT(*) as chunkCount, SUM(chunk_size) as totalBytes, MAX(version) as version FROM kivo_installer_binary_chunks WHERE platform = ?',
+      [platform]
+    );
+    const count = Number(rows[0]?.chunkCount || 0);
+    return {
+      exists: count > 0,
+      chunkCount: count,
+      totalBytes: Number(rows[0]?.totalBytes || 0),
+      version: rows[0]?.version || null,
+    };
+  } catch (err) {
+    return { exists: false, chunkCount: 0, totalBytes: 0, error: err.message };
+  }
+}
+
+// Restore binary from MySQL chunked rows to a local destination file on disk
+export async function restoreInstallerBinaryFromMysql(platform, destPath) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return null;
+
+    const [chunks] = await currentPool.query(
+      'SELECT chunk_index, chunk_size, chunk_data, sha256 FROM kivo_installer_binary_chunks WHERE platform = ? ORDER BY chunk_index ASC',
+      [platform]
+    );
+
+    if (!chunks || chunks.length === 0) {
+      return null;
+    }
+
+    console.log(`[KIVO MySQL] Restoring binary for ${platform} from MySQL (${chunks.length} chunks) to ${destPath}...`);
+
+    const dir = path.dirname(destPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const tempPath = `${destPath}.restoring.${Date.now()}`;
+    const writeStream = fs.createWriteStream(tempPath);
+    const hash = crypto.createHash('sha256');
+    let totalRestoredBytes = 0;
+
+    for (const chunk of chunks) {
+      hash.update(chunk.chunk_data);
+      writeStream.write(chunk.chunk_data);
+      totalRestoredBytes += chunk.chunk_size;
+    }
+
+    await new Promise((resolve, reject) => {
+      writeStream.end((err) => (err ? reject(err) : resolve()));
+    });
+
+    const restoredSha = hash.digest('hex');
+
+    // Atomic rename to destPath
+    if (fs.existsSync(destPath)) {
+      try {
+        fs.unlinkSync(destPath);
+      } catch {}
+    }
+    fs.renameSync(tempPath, destPath);
+
+    console.log(`[KIVO MySQL] Successfully restored ${totalRestoredBytes} bytes to ${destPath} (SHA-256: ${restoredSha.slice(0, 16)}...)`);
+    return {
+      success: true,
+      filePath: destPath,
+      sha256: restoredSha,
+      size: totalRestoredBytes,
+    };
+  } catch (err) {
+    console.error(`[KIVO MySQL] Error restoring binary for ${platform} from MySQL:`, err.message);
+    return null;
+  }
+}
+
+// Stream binary directly from MySQL to client HTTP response (if local file is missing)
+export async function streamInstallerBinaryFromMysql(res, platform, mimeType, filename) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return false;
+
+    const [metaRows] = await currentPool.query(
+      'SELECT size_bytes, version, filename, sha256 FROM kivo_installers_metadata WHERE platform = ?',
+      [platform]
+    );
+    const meta = metaRows[0];
+
+    const [chunks] = await currentPool.query(
+      'SELECT chunk_data, chunk_size FROM kivo_installer_binary_chunks WHERE platform = ? ORDER BY chunk_index ASC',
+      [platform]
+    );
+
+    if (!chunks || chunks.length === 0) return false;
+
+    const totalSize = meta?.size_bytes || chunks.reduce((acc, c) => acc + c.chunk_size, 0);
+    const safeFilename = path.basename(filename || meta?.filename || `${platform}.bin`).replace(/["\r\n\t]/g, '_');
+
+    res.writeHead(200, {
+      'Content-Length': totalSize,
+      'Content-Type': mimeType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      'Cache-Control': 'no-cache',
+    });
+
+    for (const chunk of chunks) {
+      res.write(chunk.chunk_data);
+    }
+    res.end();
+    return true;
+  } catch (err) {
+    console.error(`[KIVO MySQL] Error streaming binary from MySQL for ${platform}:`, err.message);
+    return false;
+  }
+}
+
+// Delete binary chunks from MySQL
+export async function deleteInstallerBinaryFromMysql(platform) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return;
+    await currentPool.query('DELETE FROM kivo_installer_binary_chunks WHERE platform = ?', [platform]);
+    await currentPool.query('UPDATE kivo_installers_metadata SET has_db_binary = 0, binary_total_chunks = 0 WHERE platform = ?', [platform]);
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error deleting binary from MySQL:', err.message);
+  }
 }
 
 export async function deleteTicketFromMysql(ticketId) {

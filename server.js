@@ -67,7 +67,12 @@ import {
   safeErrorHandler,
 } from './server/security.js';
 import { getStorageMetrics } from './server/storageMonitor.js';
-import { checkMysqlHealth, getMysqlPool } from './server/mysql.js';
+import {
+  checkMysqlHealth,
+  getMysqlPool,
+  checkInstallerBinaryInMysql,
+  restoreInstallerBinaryFromMysql,
+} from './server/mysql.js';
 import {
   registerCustomer,
   loginCustomer,
@@ -160,7 +165,7 @@ app.post('/api/support/ticket/:id/reply', handleCustomerReply);
 app.get('/api/support/ticket/:id/attachment/:filename', handleStreamAttachment);
 
 // Public status of installers (used dynamically by website download cards)
-app.get('/api/downloads/status', (req, res) => {
+app.get('/api/downloads/status', async (req, res) => {
   try {
     const meta = getMetadata();
     const publicStatus = {};
@@ -178,22 +183,40 @@ app.get('/api/downloads/status', (req, res) => {
         }
       }
 
-      if (isVerified) {
+      // If not verified on disk, check if MySQL holds binary chunks (survives container restarts)
+      let hasDbBinary = Boolean(item && item.hasDbBinary);
+      if (!isVerified) {
+        try {
+          const dbBinary = await checkInstallerBinaryInMysql(key);
+          if (dbBinary && dbBinary.exists && dbBinary.chunkCount > 0) {
+            hasDbBinary = true;
+            isVerified = true;
+            // Kick off asynchronous disk restore so future reads are served from disk cache
+            const restorePath = resolveInstallerFilePath(key, item?.filename || rule.defaultFileName);
+            restoreInstallerBinaryFromMysql(key, restorePath).catch(() => {});
+          }
+        } catch (dbCheckErr) {
+          console.warn(`[KIVO API] DB check notice for ${key}:`, dbCheckErr.message);
+        }
+      }
+
+      if (isVerified && (item || hasDbBinary)) {
         publicStatus[key] = {
           available: true,
-          platform: item.platform,
-          name: item.name,
-          architecture: item.architecture,
-          filename: item.filename,
-          fileName: item.filename,
-          version: item.version,
-          size: item.size,
-          sha256: item.sha256,
-          uploadedAt: item.uploadedAt,
-          downloadUrl: item.downloadUrl,
+          platform: item?.platform || key,
+          name: item?.name || rule.name,
+          architecture: item?.architecture || rule.architecture,
+          filename: item?.filename || rule.defaultFileName,
+          fileName: item?.filename || rule.defaultFileName,
+          version: item?.version || '1.0.0',
+          size: item?.size || 0,
+          sha256: item?.sha256 || '',
+          uploadedAt: item?.uploadedAt || new Date().toISOString(),
+          downloadUrl: item?.downloadUrl || `/api/download/${key}`,
           retention: 'permanent',
           retentionPolicy: 'indefinite_until_manual_removal',
           autoDelete: false,
+          hasDbBinary,
         };
       } else {
         publicStatus[key] = {
@@ -208,6 +231,7 @@ app.get('/api/downloads/status', (req, res) => {
           retention: 'permanent',
           retentionPolicy: 'indefinite_until_manual_removal',
           autoDelete: false,
+          hasDbBinary: false,
         };
       }
     }
@@ -219,12 +243,31 @@ app.get('/api/downloads/status', (req, res) => {
 });
 
 // Public installer download stream
-app.get('/api/download/:platform', (req, res) => {
+app.get('/api/download/:platform', async (req, res) => {
   const { platform } = req.params;
   if (!PLATFORM_RULES[platform]) {
     return res.status(404).send('Invalid platform specified.');
   }
-  handleDownloadStream(req, res, platform);
+  await handleDownloadStream(req, res, platform);
+});
+
+// Health check endpoint for database & persistent installer storage status
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const health = await checkMysqlHealth();
+    const binaryChecks = {};
+    for (const platform of Object.keys(PLATFORM_RULES)) {
+      binaryChecks[platform] = await checkInstallerBinaryInMysql(platform);
+    }
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      mysql: health,
+      installersInDatabase: binaryChecks,
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
 });
 
 // -------------------------------------------------------------
@@ -306,6 +349,14 @@ app.get('/api/admin/installers', requireAdminAuth, async (req, res) => {
     const { current: meta, report } = await reconcileInstallers(false);
     const storageMetrics = getStorageMetrics();
     const dbHealth = await checkMysqlHealth();
+    const binaryChecks = {};
+    for (const platform of Object.keys(PLATFORM_RULES)) {
+      try {
+        binaryChecks[platform] = await checkInstallerBinaryInMysql(platform);
+      } catch {
+        binaryChecks[platform] = { exists: false, chunkCount: 0, totalBytes: 0 };
+      }
+    }
     res.status(200).json({
       installers: meta,
       reconciliation: report,
@@ -316,6 +367,7 @@ app.get('/api/admin/installers', requireAdminAuth, async (req, res) => {
       retentionPolicy: INSTALLER_RETENTION_POLICY,
       storage: storageMetrics,
       database: dbHealth,
+      databaseBinaries: binaryChecks,
     });
   } catch (err) {
     console.error('[KIVO API] Error listing installers:', err);

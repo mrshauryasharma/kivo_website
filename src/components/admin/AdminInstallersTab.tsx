@@ -30,6 +30,7 @@ export interface InstallerMetadata {
   autoDelete?: boolean;
   status?: string;
   available?: boolean;
+  hasDbBinary?: boolean;
 }
 
 interface AdminInstallersTabProps {
@@ -531,7 +532,7 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
                         </span>
                       );
                     }
-                    if (current.status === 'missing' || current.available === false) {
+                    if ((current.status === 'missing' || current.available === false) && !current.hasDbBinary) {
                       return (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] font-semibold text-amber-300">
                           <Clock className="w-3.5 h-3.5" />
@@ -574,6 +575,14 @@ export const AdminInstallersTab: React.FC<AdminInstallersTabProps> = ({
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
                         <CheckCircle2 className="w-3 h-3" />
                         Permanent (Manual Only)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.06]">
+                      <span className="text-slate-400">MySQL Database:</span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-kivo-cyan">
+                        <CheckCircle2 className="w-3 h-3 text-kivo-cyan" />
+                        Stored in DB (Permanent)
                       </span>
                     </div>
 

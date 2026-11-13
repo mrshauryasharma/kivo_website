@@ -10,7 +10,7 @@ import {
   PLATFORM_RULES,
 } from './config.js';
 import { getMetadata, saveMetadata } from './installers.js';
-import { syncInstallerMetadataToMysql } from './mysql.js';
+import { syncInstallerMetadataToMysql, saveInstallerBinaryToMysql } from './mysql.js';
 import { assertStorageAvailable } from './storageMonitor.js';
 
 // Active upload sessions stored in memory: Map<uploadId, UploadSession>
@@ -274,6 +274,20 @@ export async function completeUpload(uploadId) {
 
   // Sync to MySQL Layer B with audit log
   await syncInstallerMetadataToMysql(metadata, 'UPLOAD', 'admin');
+
+  // PERMANENT DUAL-LAYER STORAGE: Store complete binary into MySQL chunks
+  // This guarantees binaries survive container sleep, shutdown, and fresh deployments!
+  try {
+    const dbSaveRes = await saveInstallerBinaryToMysql(session.platform, session.version, targetFilePath);
+    if (dbSaveRes?.success) {
+      installerRecord.hasDbBinary = true;
+      metadata[session.platform].hasDbBinary = true;
+      saveMetadata(metadata);
+      console.log(`[KIVO Upload] Successfully persisted ${session.platform} binary into MySQL database!`);
+    }
+  } catch (dbErr) {
+    console.warn(`[KIVO Upload] Notice: Binary storage in MySQL skipped:`, dbErr.message);
+  }
 
   // Clean up chunk files and active session
   try {

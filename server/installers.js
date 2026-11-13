@@ -11,7 +11,14 @@ import {
   getStoredMetadata,
   saveStoredMetadata,
 } from './db.js';
-import { deleteInstallerMetadataFromMysql, incrementDownloadCountInMysql } from './mysql.js';
+import {
+  deleteInstallerMetadataFromMysql,
+  incrementDownloadCountInMysql,
+  checkInstallerBinaryInMysql,
+  restoreInstallerBinaryFromMysql,
+  streamInstallerBinaryFromMysql,
+  deleteInstallerBinaryFromMysql,
+} from './mysql.js';
 
 // Load metadata from persistent database
 export function getMetadata() {
@@ -36,13 +43,86 @@ export function getInstaller(platform) {
 
   // 2. Multi-directory persistent candidate resolution
   const resolvedPath = resolveInstallerFilePath(platform, installer.filename, installer.filePath);
-  if (resolvedPath) {
+  if (resolvedPath && fs.existsSync(resolvedPath)) {
     installer.filePath = resolvedPath;
     saveMetadata(metadata);
     return installer;
   }
 
   return null;
+}
+
+// Async installer lookup with MySQL binary auto-restore
+export async function getInstallerAsync(platform) {
+  const metadata = getMetadata();
+  let installer = metadata[platform];
+
+  // 1. Direct path check
+  if (installer && installer.filePath && fs.existsSync(installer.filePath)) {
+    return installer;
+  }
+
+  // 2. Multi-directory persistent candidate resolution
+  if (installer) {
+    const resolvedPath = resolveInstallerFilePath(platform, installer.filename, installer.filePath);
+    if (resolvedPath && fs.existsSync(resolvedPath)) {
+      installer.filePath = resolvedPath;
+      saveMetadata(metadata);
+      return installer;
+    }
+  }
+
+  // 3. MySQL binary chunk check & auto-restore
+  try {
+    const dbBinary = await checkInstallerBinaryInMysql(platform);
+    if (dbBinary && dbBinary.exists && dbBinary.chunkCount > 0) {
+      const rule = PLATFORM_RULES[platform];
+      const filename = installer?.filename || rule?.defaultFileName || `${platform}.bin`;
+      const targetRestorePath = resolveInstallerFilePath(platform, filename);
+      const restored = await restoreInstallerBinaryFromMysql(platform, targetRestorePath);
+      if (restored && restored.success && fs.existsSync(targetRestorePath)) {
+        if (!installer) {
+          installer = {
+            id: crypto.randomUUID(),
+            platform,
+            name: rule?.name || platform,
+            architecture: rule?.architecture || 'x64',
+            filename,
+            version: dbBinary.version || '1.0.0',
+            size: restored.size,
+            sha256: restored.sha256,
+            filePath: targetRestorePath,
+            downloadUrl: `/api/download/${platform}`,
+            uploadedAt: new Date().toISOString(),
+            retention: 'permanent',
+            retentionPolicy: 'indefinite_until_manual_removal',
+            autoDelete: false,
+            isActive: true,
+            isDeleted: false,
+            status: 'verified',
+            available: true,
+            hasDbBinary: true,
+          };
+          metadata[platform] = installer;
+        } else {
+          installer.filePath = targetRestorePath;
+          installer.status = 'verified';
+          installer.available = true;
+          installer.hasDbBinary = true;
+        }
+        saveMetadata(metadata);
+        return installer;
+      }
+      if (installer) {
+        installer.hasDbBinary = true;
+        return installer;
+      }
+    }
+  } catch (err) {
+    console.warn(`[KIVO Storage] getInstallerAsync DB restore notice for ${platform}:`, err.message);
+  }
+
+  return installer || null;
 }
 
 // Delete installer for platform (MANUAL ADMIN REMOVAL ONLY)
@@ -88,18 +168,38 @@ export async function deleteInstaller(platform, adminUser = 'admin') {
   metadata[platform] = null;
   saveMetadata(metadata);
   await deleteInstallerMetadataFromMysql(platform, adminUser);
+  await deleteInstallerBinaryFromMysql(platform);
   return true;
 }
 
 // Stream download handler with Range support for high-speed download managers
-export function handleDownloadStream(req, res, platform) {
+export async function handleDownloadStream(req, res, platform) {
   const rule = PLATFORM_RULES[platform];
   if (!rule) {
     return res.status(404).send('Invalid platform specified.');
   }
 
-  const installer = getInstaller(platform);
-  if (!installer || !installer.filePath || !fs.existsSync(installer.filePath)) {
+  let installer = getInstaller(platform);
+  let fileOnDisk = Boolean(installer && installer.filePath && fs.existsSync(installer.filePath));
+
+  if (!fileOnDisk) {
+    // Attempt async resolution & restore from MySQL
+    installer = await getInstallerAsync(platform);
+    fileOnDisk = Boolean(installer && installer.filePath && fs.existsSync(installer.filePath));
+  }
+
+  // If still not on disk, check if MySQL has the binary chunks and stream directly
+  if (!fileOnDisk) {
+    const rawFilename = installer?.filename || rule.defaultFileName;
+    const safeFilename = path.basename(rawFilename).replace(/["\r\n\t]/g, '_');
+    const streamed = await streamInstallerBinaryFromMysql(res, platform, rule.mimeType, safeFilename);
+    if (streamed) {
+      incrementDownloadCountInMysql(platform).catch(() => {});
+      // Trigger background restore to disk cache for subsequent downloads
+      const targetPath = resolveInstallerFilePath(platform, safeFilename);
+      restoreInstallerBinaryFromMysql(platform, targetPath).catch(() => {});
+      return;
+    }
     return res.status(404).send('Installer binary is currently unavailable for this platform.');
   }
 

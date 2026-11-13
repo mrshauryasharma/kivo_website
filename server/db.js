@@ -19,6 +19,10 @@ import {
   loadInstallerMetadataFromMysql,
   deleteInstallerMetadataFromMysql,
   deleteTicketFromMysql,
+  checkInstallerBinaryInMysql,
+  restoreInstallerBinaryFromMysql,
+  saveInstallerBinaryToMysql,
+  deleteInstallerBinaryFromMysql,
 } from './mysql.js';
 
 // -------------------------------------------------------------
@@ -1133,41 +1137,83 @@ export async function reconcileInstallers(forceSync = false) {
     const rule = PLATFORM_RULES[platform];
     let item = current[platform];
 
-    // If no record exists, scan candidate directories for physical binaries
+    // If no record exists, scan candidate directories or check MySQL binary chunks
     if (!item) {
-      const ext = rule.allowedExtensions[0] || '';
-      const candidatePath = resolveInstallerFilePath(platform, rule.defaultFileName);
-      if (candidatePath && fs.existsSync(candidatePath)) {
-        try {
-          const stat = fs.statSync(candidatePath);
-          if (stat.isFile() && stat.size > 0) {
-            const fileBuf = fs.readFileSync(candidatePath);
-            const sha256 = crypto.createHash('sha256').update(fileBuf).digest('hex');
+      // First check if MySQL has binary chunks for this platform
+      try {
+        const dbBinary = await checkInstallerBinaryInMysql(platform);
+        if (dbBinary && dbBinary.exists && dbBinary.chunkCount > 0) {
+          console.log(`[KIVO Storage] Found binary chunks in MySQL for ${platform} without metadata. Auto-restoring...`);
+          const targetPath = resolveInstallerFilePath(platform, rule.defaultFileName);
+          const restored = await restoreInstallerBinaryFromMysql(platform, targetPath);
+          if (restored && restored.success) {
             item = {
               id: crypto.randomUUID(),
               platform,
               name: rule.name,
               architecture: rule.architecture,
-              filename: path.basename(candidatePath),
-              version: '1.0.0',
-              size: stat.size,
-              sha256,
-              filePath: candidatePath,
+              filename: rule.defaultFileName,
+              version: dbBinary.version || '1.0.0',
+              size: restored.size,
+              sha256: restored.sha256,
+              filePath: targetPath,
               downloadUrl: `/api/download/${platform}`,
-              uploadedAt: new Date(stat.mtime).toISOString(),
+              uploadedAt: new Date().toISOString(),
               retention: 'permanent',
               retentionPolicy: 'indefinite_until_manual_removal',
               autoDelete: false,
               isActive: true,
               isDeleted: false,
               status: 'verified',
+              available: true,
+              hasDbBinary: true,
             };
             current[platform] = item;
             needsSave = true;
-            console.log(`[KIVO Storage] Discovered unindexed physical file for ${platform} at ${candidatePath}. Re-indexed.`);
           }
-        } catch (scanErr) {
-          console.warn(`[KIVO Storage] Error inspecting unindexed file for ${platform}:`, scanErr.message);
+        }
+      } catch (scanDbErr) {
+        console.warn(`[KIVO Storage] Notice: DB chunk check for unindexed ${platform}:`, scanDbErr.message);
+      }
+
+      // If still no item, scan candidate directories for physical binaries on disk
+      if (!item) {
+        const ext = rule.allowedExtensions[0] || '';
+        const candidatePath = resolveInstallerFilePath(platform, rule.defaultFileName);
+        if (candidatePath && fs.existsSync(candidatePath)) {
+          try {
+            const stat = fs.statSync(candidatePath);
+            if (stat.isFile() && stat.size > 0) {
+              const fileBuf = fs.readFileSync(candidatePath);
+              const sha256 = crypto.createHash('sha256').update(fileBuf).digest('hex');
+              item = {
+                id: crypto.randomUUID(),
+                platform,
+                name: rule.name,
+                architecture: rule.architecture,
+                filename: path.basename(candidatePath),
+                version: '1.0.0',
+                size: stat.size,
+                sha256,
+                filePath: candidatePath,
+                downloadUrl: `/api/download/${platform}`,
+                uploadedAt: new Date(stat.mtime).toISOString(),
+                retention: 'permanent',
+                retentionPolicy: 'indefinite_until_manual_removal',
+                autoDelete: false,
+                isActive: true,
+                isDeleted: false,
+                status: 'verified',
+                available: true,
+                hasDbBinary: false,
+              };
+              current[platform] = item;
+              needsSave = true;
+              console.log(`[KIVO Storage] Discovered unindexed physical file for ${platform} at ${candidatePath}. Re-indexed.`);
+            }
+          } catch (scanErr) {
+            console.warn(`[KIVO Storage] Error inspecting unindexed file for ${platform}:`, scanErr.message);
+          }
         }
       }
     }
@@ -1193,6 +1239,31 @@ export async function reconcileInstallers(forceSync = false) {
         }
       }
 
+      // If still not on disk, check if MySQL has the binary (Permanent DB Backup) and auto-restore to disk
+      if (!fileExists) {
+        try {
+          const dbBinary = await checkInstallerBinaryInMysql(platform);
+          if (dbBinary && dbBinary.exists && dbBinary.chunkCount > 0) {
+            console.log(`[KIVO Storage] Restoring missing disk file for ${platform} from MySQL (${dbBinary.chunkCount} chunks, ${dbBinary.totalBytes} bytes)...`);
+            const targetPath = resolveInstallerFilePath(platform, item.filename || rule.defaultFileName);
+            const restored = await restoreInstallerBinaryFromMysql(platform, targetPath);
+            if (restored && restored.success && fs.existsSync(targetPath)) {
+              item.filePath = targetPath;
+              physicalPath = targetPath;
+              fileExists = true;
+              item.hasDbBinary = true;
+              needsSave = true;
+              console.log(`[KIVO Storage] Restored ${platform} binary to disk from MySQL successfully!`);
+            } else {
+              // File is in DB even if disk write had an issue
+              item.hasDbBinary = true;
+            }
+          }
+        } catch (dbErr) {
+          console.warn(`[KIVO Storage] DB restore attempt for ${platform} notice:`, dbErr.message);
+        }
+      }
+
       if (fileExists) {
         try {
           const stat = fs.statSync(physicalPath);
@@ -1210,7 +1281,18 @@ export async function reconcileInstallers(forceSync = false) {
           if (actualSha256 === item.sha256) {
             item.status = 'verified';
             item.available = true;
+            item.hasDbBinary = true;
             reconciliationReport.totalVerified++;
+
+            // Asynchronously ensure binary is in MySQL (if not already stored)
+            checkInstallerBinaryInMysql(platform).then((dbCheck) => {
+              if (!dbCheck || !dbCheck.exists || dbCheck.chunkCount === 0) {
+                console.log(`[KIVO Storage] File for ${platform} on disk not yet in MySQL. Syncing to MySQL in background...`);
+                saveInstallerBinaryToMysql(platform, item.version || '1.0.0', physicalPath).catch((err) => {
+                  console.warn(`[KIVO Storage] Background MySQL sync for ${platform} notice:`, err.message);
+                });
+              }
+            }).catch(() => {});
           } else {
             console.warn(`[KIVO Storage] Checksum mismatch for ${platform}! Expected ${item.sha256}, got ${actualSha256}`);
             item.status = 'corrupted';
@@ -1222,10 +1304,14 @@ export async function reconcileInstallers(forceSync = false) {
           item.status = 'error';
           item.available = false;
         }
+      } else if (item.hasDbBinary) {
+        // Even if local disk write hasn't completed yet, MySQL has the binary so it's fully verified and downloadable!
+        item.status = 'verified';
+        item.available = true;
+        reconciliationReport.totalVerified++;
       } else {
-        // Physical file missing on disk, but DO NOT WIPE METADATA!
-        // Admin must be aware that an installer was registered but binary is absent.
-        console.warn(`[KIVO Storage] Binary for ${platform} is currently missing from disk at ${physicalPath}. Retaining metadata.`);
+        // Physical file missing on disk and not in MySQL
+        console.warn(`[KIVO Storage] Binary for ${platform} is currently missing from disk and MySQL at ${physicalPath}. Retaining metadata.`);
         item.status = 'missing';
         item.available = false;
         reconciliationReport.totalMissing++;
@@ -1239,6 +1325,7 @@ export async function reconcileInstallers(forceSync = false) {
         filePath: item.filePath,
         size: item.size,
         sha256: item.sha256,
+        hasDbBinary: Boolean(item.hasDbBinary),
       };
     } else {
       reconciliationReport.platforms[platform] = {
@@ -1247,6 +1334,7 @@ export async function reconcileInstallers(forceSync = false) {
         status: 'not_uploaded',
         available: false,
         filePath: null,
+        hasDbBinary: false,
       };
     }
   }
