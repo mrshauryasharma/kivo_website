@@ -66,6 +66,8 @@ import {
   validateUploadInitBody,
   validateUploadId,
   safeErrorHandler,
+  noCacheSensitiveRoutes,
+  otpRateLimiter,
 } from './server/security.js';
 import { getStorageMetrics } from './server/storageMonitor.js';
 import {
@@ -163,11 +165,36 @@ app.use(
 );
 
 // -------------------------------------------------------------
-// Public Endpoints (Health, Downloads, CMS, Support)
+// Public Endpoints (Health, Security.txt, License, Downloads, CMS, Support)
 // -------------------------------------------------------------
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// RFC 9116 Security Policy endpoint
+app.get(['/.well-known/security.txt', '/security.txt'], (req, res) => {
+  const securityFile = path.join(__dirname, 'public', '.well-known', 'security.txt');
+  if (fs.existsSync(securityFile)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(fs.readFileSync(securityFile, 'utf8'));
+  }
+  res.status(404).send('Not Found');
+});
+
+// Official Software License & EULA endpoint
+app.get(['/LICENSE', '/LICENSE.txt', '/license.txt'], (req, res) => {
+  const licenseFile = path.join(__dirname, 'LICENSE');
+  if (fs.existsSync(licenseFile)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(fs.readFileSync(licenseFile, 'utf8'));
+  }
+  res.status(404).send('Not Found');
+});
+
+// Sensitive endpoints must never be cached by intermediaries or browsers
+app.use(['/api/admin', '/api/support/track', '/api/support/ticket'], noCacheSensitiveRoutes);
 
 // Public published CMS content
 app.get('/api/content', handleGetPublishedContent);
@@ -179,9 +206,9 @@ app.post('/api/admin/upload-attachment', requireAdminAuth, handleFileUpload);
 // Public support ticket submission
 app.post('/api/support/ticket', handleTicketSubmission);
 
-// Customer Ticket Tracking & Ownership Verification (IDOR Protected)
-app.post('/api/support/track/request-otp', handleRequestOtp);
-app.post('/api/support/track/verify', handleVerifyOtp);
+// Customer Ticket Tracking & Ownership Verification (IDOR Protected & Rate Limited)
+app.post('/api/support/track/request-otp', otpRateLimiter, handleRequestOtp);
+app.post('/api/support/track/verify', otpRateLimiter, handleVerifyOtp);
 app.get('/api/support/ticket/:id', handleGetCustomerTicket);
 app.post('/api/support/ticket/:id/reply', handleCustomerReply);
 app.get('/api/support/ticket/:id/attachment/:filename', handleStreamAttachment);

@@ -1,0 +1,69 @@
+KIVO BROWSER END USER LICENSE AGREEMENT (EULA) & SOFTWARE LICENSE
+
+Copyright (c) 2026 KIVO Browser Technologies & Shaurya Sharma.
+All Rights Reserved.
+
+IMPORTANT — READ CAREFULLY:
+This End User License Agreement ("EULA" or "License") is a legal agreement between you (either an individual or a single entity, referred to as "You" or "User") and KIVO Browser Technologies ("KIVO", "We", "Us", or "Our"), regarding the KIVO Browser software, client binaries (including Windows .EXE, macOS .DMG for Apple Silicon and Intel, and Android .APK packages), related online services, documentation, and the official website at https://kivobrowser.c37.airoapp.ai/ (collectively, the "Software").
+
+BY DOWNLOADING, INSTALLING, COPYING, OR USING THE SOFTWARE, YOU AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE TO THESE TERMS, DO NOT DOWNLOAD, INSTALL, OR USE THE SOFTWARE.
+
+================================================================================
+1. GRANT OF LICENSE
+================================================================================
+KIVO grants you a personal, non-exclusive, non-transferable, revocable license to:
+(a) Download, install, and execute the Software on any compatible desktop or mobile device (Windows, macOS, Android) that you own or control;
+(b) Use the Software solely for personal, professional, or internal business browsing activities in compliance with applicable laws;
+(c) Make a reasonable number of backup copies of the original installer packages for personal archival purposes.
+
+================================================================================
+2. PRIVACY & DATA SOVEREIGNTY COMMITMENT
+================================================================================
+(a) ZERO BEHAVIORAL SURVEILLANCE: The Software is architected with strict client-side data sovereignty. KIVO does not track, log, record, harvest, sell, or monetize your URLs, search queries, cookies, browsing history, or downloads.
+(b) LOCAL DATA RESIDENCY: Bookmarks, saved credentials, history cache, and browser configurations are stored exclusively on your local storage device.
+(c) CLIENT-SIDE SHIELD: The KIVO ad-blocking and privacy shield engine executes filters locally on your hardware; visited URLs are never transmitted to external inspection servers.
+
+================================================================================
+3. RESTRICTIONS
+================================================================================
+Except as expressly permitted by applicable law, you shall NOT:
+(a) Reverse engineer, decompile, disassemble, or derive source code from proprietary KIVO components, except to the extent permitted by open-source components included within the Software;
+(b) Modify, alter, or remove any copyright notices, proprietary markings, or digital checksums from the Software installers;
+(c) Rent, lease, sublicense, distribute, or host the Software for commercial software-as-a-service without prior written consent from KIVO;
+(d) Circumvent, disable, or tamper with security features, update signature verification, or anti-tamper protections;
+(e) Re-distribute modified binaries disguised under the "KIVO" trademark, logo, or brand identity.
+
+================================================================================
+4. OPEN SOURCE AND THIRD-PARTY LICENSES
+================================================================================
+The Software and its web infrastructure incorporate various third-party open-source components and libraries, which are licensed under their respective open-source licenses (including MIT, Apache 2.0, BSD, and Chromium open-source project licenses). Nothing in this Agreement restricts your rights under applicable open-source license agreements. A complete list of third-party attributions is accessible within the Software documentation and the Legal Portal.
+
+================================================================================
+5. UPDATES AND SECURITY RELEASES
+================================================================================
+KIVO may periodically provide updates, patches, bug fixes, or enhancements. The Software may query KIVO verification servers to detect available updates. Update verification transmits only the installed version and operating system architecture. No personal telemetry is attached.
+
+================================================================================
+6. INTELLECTUAL PROPERTY RIGHTS
+================================================================================
+"KIVO", "KIVO Browser", the KIVO logo, and accompanying design elements are trademarks of KIVO Browser Technologies and Shaurya Sharma. All title, ownership rights, and intellectual property rights in and to the Software remain with KIVO and its licensors.
+
+================================================================================
+7. DISCLAIMER OF WARRANTIES
+================================================================================
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITH ALL FAULTS AND WITHOUT WARRANTY OF ANY KIND. KIVO DISCLAIMS ALL WARRANTIES, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WITHOUT LIMITATION WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+================================================================================
+8. LIMITATION OF LIABILITY
+================================================================================
+IN NO EVENT SHALL KIVO, ITS FOUNDERS, EMPLOYEES, OR AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR IN CONNECTION WITH THE USE OR INABILITY TO USE THE SOFTWARE.
+
+================================================================================
+9. CONTACT & GOVERNING LAW
+================================================================================
+This Agreement shall be governed by and construed in accordance with the laws of India, without regard to conflict of law principles.
+
+For licensing inquiries, legal notices, or enterprise distribution permissions:
+- Project Lead / CEO: Shaurya Sharma (https://github.com/mrshauryasharma)
+- Support & Compliance Portal: https://kivobrowser.c37.airoapp.ai/support
+- Official Website: https://kivobrowser.c37.airoapp.ai/

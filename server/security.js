@@ -89,6 +89,7 @@ export function securityHeaders(req, res, next) {
   // - Styles: Self-hosted + unsafe-inline for Framer Motion dynamic transforms + Google Fonts
   // - Images: Self-hosted logo PNGs, inline data: and blob: SVGs
   // - Framing: Blocked completely (frame-ancestors 'none') to prevent Clickjacking
+  // - Workers: Self-hosted Service Worker (sw.js)
   const cspDirectives = [
     "default-src 'self'",
     "script-src 'self'",
@@ -96,6 +97,8 @@ export function securityHeaders(req, res, next) {
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob:",
     "connect-src 'self'",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -111,13 +114,16 @@ export function securityHeaders(req, res, next) {
   // Clickjacking protection for legacy browsers (superseded by frame-ancestors 'none')
   res.setHeader('X-Frame-Options', 'DENY');
 
+  // Cross-Domain Policies
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+
   // Referrer Policy: sends full URL on same-origin, origin only on cross-origin HTTPS, none on downgrade
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // Permissions Policy: disable sensitive device APIs
   res.setHeader(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), vr=(), interest-cohort=()'
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), vr=(), interest-cohort=(), screen-wake-lock=()'
   );
 
   // Modern Cross-Origin Isolations
@@ -146,7 +152,8 @@ export function blockRestrictedAccess(req, res, next) {
   }
 
   // Check 2: Block dotfiles and hidden folders (e.g. .env, .git, .gitignore, .DS_Store)
-  if (/(^\/|\/)\.[a-zA-Z0-9_-]/i.test(requestPath)) {
+  // Exception: RFC 9116 standard /.well-known/ paths (e.g. /.well-known/security.txt)
+  if (/(^\/|\/)\.[a-zA-Z0-9_-]/i.test(requestPath) && !requestPath.startsWith('/.well-known/')) {
     return res.status(404).send('Not Found');
   }
 
@@ -299,6 +306,63 @@ export function validateUploadId(uploadId) {
     throw new Error('Invalid uploadId parameter. Expected valid UUID format.');
   }
   return uploadId;
+}
+
+// -------------------------------------------------------------
+// 7. Anti-Caching Header Middleware for Sensitive Data
+// -------------------------------------------------------------
+export function noCacheSensitiveRoutes(req, res, next) {
+  res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, private'
+  );
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+}
+
+// -------------------------------------------------------------
+// 8. Specialized Rate Limiter for OTP & Ticket Verification
+// -------------------------------------------------------------
+const otpLimits = new Map();
+const OTP_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_OTP_REQUESTS_PER_WINDOW = 5;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of otpLimits.entries()) {
+    if (now > record.resetTime) {
+      otpLimits.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+export function otpRateLimiter(req, res, next) {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const target = (req.body?.ticketId || req.body?.identifier || '').trim().toLowerCase();
+  const key = `otp:${ip}:${target}`;
+  const now = Date.now();
+
+  let record = otpLimits.get(key);
+  if (!record || now > record.resetTime) {
+    record = { count: 1, resetTime: now + OTP_LIMIT_WINDOW_MS };
+    otpLimits.set(key, record);
+  } else {
+    record.count += 1;
+  }
+
+  if (record.count > MAX_OTP_REQUESTS_PER_WINDOW) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    res.setHeader('Retry-After', retryAfter);
+    return res.status(429).json({
+      error: 'Too many verification attempts. Please wait 10 minutes before requesting another code.',
+      code: 'OTP_RATE_LIMIT_EXCEEDED',
+      retryAfterSeconds: retryAfter,
+    });
+  }
+
+  next();
 }
 
 // -------------------------------------------------------------

@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Download, LifeBuoy } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
 import { MagneticButton } from './MagneticButton';
+import type { LegalTab } from './LegalModal';
 
 interface NavbarProps {
-  onOpenLegal?: (tab: 'privacy' | 'terms') => void;
+  onOpenLegal?: (tab: LegalTab) => void;
   onOpenSupport?: () => void;
   onNavigate?: (path: string) => void;
 }

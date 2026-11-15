@@ -1,15 +1,21 @@
 import React from 'react';
-import { Shield } from 'lucide-react';
+import { Shield, Cookie, Award, ShieldAlert, Sliders } from 'lucide-react';
 import logoImg from '../assets/kivo-logo.png';
 import { WindowsIcon, AppleIcon, AndroidIcon } from './Hero';
 import { useCms } from '../context/CmsContext';
+import type { LegalTab } from './LegalModal';
 
 interface FooterProps {
-  onOpenLegal: (tab: 'privacy' | 'terms') => void;
+  onOpenLegal: (tab: LegalTab) => void;
   onOpenSupport?: () => void;
+  onOpenCookiePreferences?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) => {
+export const Footer: React.FC<FooterProps> = ({
+  onOpenLegal,
+  onOpenSupport,
+  onOpenCookiePreferences,
+}) => {
   const { content } = useCms();
   const footer = content.footer;
 
@@ -52,7 +58,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
             </a>
 
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
-              {footer?.tagline || 'A modern privacy-first desktop web browser built for Windows, macOS and Android. Fast, sovereign, and deeply customizable.'}
+              {footer?.tagline || 'A modern privacy-first desktop and mobile web browser engineered for Android, Windows, and macOS. Fast, sovereign, and deeply customizable.'}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -143,10 +149,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
             </ul>
           </div>
 
-          {/* Legal and Privacy Information */}
+          {/* Legal, Cookies and Trust Information */}
           <div className="lg:col-span-4 space-y-3">
             <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider mb-4">
-              Legal & Trust
+              Legal, Security & Compliance
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
@@ -167,6 +173,48 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
                   Terms of Service
                 </button>
               </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegal('cookies')}
+                  className="hover:text-white transition-colors text-left flex items-center gap-1.5"
+                >
+                  <Cookie className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Cookie Policy</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegal('license')}
+                  className="hover:text-white transition-colors text-left flex items-center gap-1.5"
+                >
+                  <Award className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Software License &amp; EULA</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegal('security')}
+                  className="hover:text-white transition-colors text-left flex items-center gap-1.5"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Security &amp; Vulnerability Disclosure</span>
+                </button>
+              </li>
+              {onOpenCookiePreferences && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={onOpenCookiePreferences}
+                    className="text-slate-300 hover:text-white transition-colors text-left flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]"
+                  >
+                    <Sliders className="w-3 h-3 text-kivo-cyan" />
+                    <span>Cookie Preferences / Settings</span>
+                  </button>
+                </li>
+              )}
               {onOpenSupport && (
                 <li>
                   <button
@@ -174,7 +222,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
                     onClick={onOpenSupport}
                     className="text-kivo-cyan hover:text-white transition-colors text-left font-medium"
                   >
-                    Contact & Support (Report Problem)
+                    Contact &amp; Support (Report Problem)
                   </button>
                 </li>
               )}
@@ -182,7 +230,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
                 <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-slate-400">
                   <div className="flex items-center gap-1.5 text-white font-medium mb-1">
                     <Shield className="w-3.5 h-3.5 text-kivo-cyan" />
-                    <span>No Third-Party Ad Networks</span>
+                    <span>Zero Third-Party Ad Networks</span>
                   </div>
                   KIVO does not sell your browsing profiles or monetize personal data streams.
                 </div>
@@ -193,7 +241,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onOpenSupport }) =>
 
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>{footer?.copyright || '© 2026 KIVO Browser. All rights reserved.'}</p>
+          <p>{footer?.copyright || '© 2026 KIVO Browser Technologies & Shaurya Sharma. All rights reserved.'}</p>
           <div className="flex items-center gap-6">
             <span className="font-medium text-slate-400">
               KIVO — Browse Freely.

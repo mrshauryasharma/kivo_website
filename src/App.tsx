@@ -11,7 +11,8 @@ import { DownloadSection } from './components/DownloadSection';
 import { CeoSection } from './components/CeoSection';
 import { CeoBottomSection } from './components/CeoBottomSection';
 import { Footer } from './components/Footer';
-import { LegalModal } from './components/LegalModal';
+import { LegalModal, type LegalTab } from './components/LegalModal';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { EarlyAccessModal } from './components/EarlyAccessModal';
 import { SupportModal } from './components/SupportModal';
 import { TicketTrackingPortal } from './components/TicketTrackingPortal';
@@ -51,14 +52,15 @@ export function App() {
   };
 
   const [legalModalOpen, setLegalModalOpen] = useState(false);
-  const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms'>('privacy');
+  const [legalModalTab, setLegalModalTab] = useState<LegalTab>('privacy');
+  const [cookiePreferencesOpen, setCookiePreferencesOpen] = useState(false);
 
   const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
   const [earlyAccessPlatform, setEarlyAccessPlatform] = useState<'windows' | 'macos' | 'android'>('android');
 
   const [supportModalOpen, setSupportModalOpen] = useState(false);
 
-  const handleOpenLegal = (tab: 'privacy' | 'terms') => {
+  const handleOpenLegal = (tab: LegalTab) => {
     setLegalModalTab(tab);
     setLegalModalOpen(true);
   };
@@ -154,7 +156,18 @@ export function App() {
           </main>
 
           {/* Section 10: Footer */}
-          <Footer onOpenLegal={handleOpenLegal} onOpenSupport={handleOpenSupport} />
+          <Footer
+            onOpenLegal={handleOpenLegal}
+            onOpenSupport={handleOpenSupport}
+            onOpenCookiePreferences={() => setCookiePreferencesOpen(true)}
+          />
+
+          {/* Interactive Cookie & Privacy Consent Banner */}
+          <CookieConsentBanner
+            isOpen={cookiePreferencesOpen}
+            onClose={() => setCookiePreferencesOpen(false)}
+            onOpenCookiePolicy={() => handleOpenLegal('cookies')}
+          />
 
           {/* Interactive Modals */}
           <LegalModal
