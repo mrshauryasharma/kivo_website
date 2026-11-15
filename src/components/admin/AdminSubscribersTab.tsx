@@ -10,6 +10,9 @@ import {
   Smartphone,
   Monitor,
   Apple,
+  AlertCircle,
+  RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
 
 interface SubscriberRecord {
@@ -50,6 +53,7 @@ export const AdminSubscribersTab: React.FC<AdminSubscribersTabProps> = ({ csrfTo
   const [platformFilter, setPlatformFilter] = useState<'all' | 'android' | 'windows' | 'mac-arm64' | 'mac-intel'>('all');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState<string | null>(null);
+  const [broadcastError, setBroadcastError] = useState<string | null>(null);
 
   const fetchSubscribers = async () => {
     setIsLoading(true);
@@ -88,6 +92,7 @@ export const AdminSubscribersTab: React.FC<AdminSubscribersTabProps> = ({ csrfTo
 
     setIsBroadcasting(true);
     setBroadcastStatus(null);
+    setBroadcastError(null);
     try {
       const res = await fetch('/api/admin/subscribers/notify', {
         method: 'POST',
@@ -99,16 +104,37 @@ export const AdminSubscribersTab: React.FC<AdminSubscribersTabProps> = ({ csrfTo
         body: JSON.stringify({ platform: targetPlatform }),
       });
       const data = await res.json();
-      if (res.ok) {
+      if (res.ok && data.success) {
         setBroadcastStatus(data.message || `Notified ${data.notifiedCount} subscriber(s)!`);
         fetchSubscribers();
       } else {
-        alert(data.error || 'Failed to send notifications.');
+        setBroadcastError(
+          data.error ||
+            'Resend failed to deliver email. In testing mode, you must verify your domain or send to your registered email.'
+        );
+        fetchSubscribers();
       }
     } catch {
-      alert('Network error while broadcasting notifications.');
+      setBroadcastError('Network error while broadcasting notifications.');
     } finally {
       setIsBroadcasting(false);
+    }
+  };
+
+  const handleResetStatus = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/subscribers/${id}/reset`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
+      });
+      if (res.ok) {
+        fetchSubscribers();
+      }
+    } catch (err) {
+      console.error('Failed to reset status:', err);
     }
   };
 
@@ -199,6 +225,50 @@ export const AdminSubscribersTab: React.FC<AdminSubscribersTabProps> = ({ csrfTo
           </button>
         </div>
       )}
+
+      {broadcastError && (
+        <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-semibold text-white block">Resend Delivery Rejection:</span>
+              <p className="mt-1 text-rose-200 leading-relaxed">{broadcastError}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setBroadcastError(null)}
+            className="text-xs text-rose-400 hover:underline shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Resend Domain Verification Explanation Banner */}
+      <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-200 text-xs flex items-start gap-3">
+        <Mail className="w-4 h-4 text-sky-400 mt-0.5 shrink-0" />
+        <div className="space-y-1.5 flex-1">
+          <span className="font-semibold text-white flex items-center gap-2">
+            <span>Resend Live Email Delivery Requirement:</span>
+          </span>
+          <p className="text-slate-300 leading-relaxed">
+            In Resend Testing Mode (<code className="text-sky-300 font-mono">onboarding@resend.dev</code>), Resend strictly allows delivering emails only to your account owner email (<code className="text-sky-300 font-mono">zynotixx0@gmail.com</code>).
+            To broadcast emails to any external customer (Gmail, Yahoo, Outlook, etc.), you must add your custom domain in Resend:
+          </p>
+          <div className="pt-1 flex items-center gap-2">
+            <a
+              href="https://resend.com/domains"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-sky-500/20 border border-sky-500/30 text-sky-300 hover:text-white font-medium text-[11px] transition-colors"
+            >
+              <span>Open Resend Domains</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            <span className="text-slate-400 text-[11px]">→ Add kivobrowser.com and add the 3 DNS records in GoDaddy/cPanel.</span>
+          </div>
+        </div>
+      </div>
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -322,6 +392,7 @@ export const AdminSubscribersTab: React.FC<AdminSubscribersTabProps> = ({ csrfTo
                   <th className="py-3.5 px-4 font-semibold">Status</th>
                   <th className="py-3.5 px-4 font-semibold">Date Registered</th>
                   <th className="py-3.5 px-4 font-semibold">Notified At</th>
+                  <th className="py-3.5 px-4 font-semibold text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.06]">
@@ -354,6 +425,21 @@ export const AdminSubscribersTab: React.FC<AdminSubscribersTabProps> = ({ csrfTo
                     </td>
                     <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
                       {sub.notified_at ? new Date(sub.notified_at).toLocaleString() : '—'}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      {sub.status === 'notified' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleResetStatus(sub.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-medium transition-colors border border-amber-500/20"
+                          title="Reset to Pending to allow re-notifying"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset to Pending</span>
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-500">Ready</span>
+                      )}
                     </td>
                   </tr>
                 ))}

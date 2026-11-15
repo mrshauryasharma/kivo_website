@@ -94,6 +94,7 @@ import {
   addReleaseSubscriber,
   listAllReleaseSubscribers,
   notifySubscribersForPlatform,
+  resetReleaseSubscriberStatus,
 } from './server/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -761,15 +762,40 @@ app.post('/api/admin/subscribers/notify', requireAdminAuth, async (req, res) => 
       return res.status(400).json({ error: 'Platform parameter is required.' });
     }
     const result = await notifySubscribersForPlatform(platform, version, downloadUrl);
+
+    if (result.notifiedCount === 0 && result.failedCount > 0) {
+      const firstErr = result.errors?.[0]?.error || 'Failed to deliver notification email.';
+      return res.status(400).json({
+        success: false,
+        error: firstErr,
+        notifiedCount: 0,
+        failedCount: result.failedCount,
+        details: result.errors,
+      });
+    }
+
     res.status(200).json({
       success: true,
-      message: `Notification broadcast completed. Sent to ${result.notifiedCount} subscriber(s).`,
+      message: `Notification broadcast completed: ${result.notifiedCount} sent successfully.` + (result.failedCount > 0 ? ` (${result.failedCount} failed to deliver)` : ''),
       notifiedCount: result.notifiedCount,
+      failedCount: result.failedCount,
       totalSubscribers: result.totalSubscribers,
+      details: result.errors,
     });
   } catch (err) {
     console.error('[KIVO API] Error sending subscriber notifications:', err);
     res.status(500).json({ error: 'Failed to broadcast notifications: ' + err.message });
+  }
+});
+
+// Admin: Reset subscriber notification status back to pending
+app.post('/api/admin/subscribers/:id/reset', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await resetReleaseSubscriberStatus(id);
+    res.status(200).json({ success: true, message: `Subscriber ${id} reset to pending.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

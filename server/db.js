@@ -1629,12 +1629,13 @@ export async function notifySubscribersForPlatform(platform, version = '1.0.0', 
 
   if (!pendingList || pendingList.length === 0) {
     console.log(`[KIVO Notification] No pending subscribers for ${normPlatform}.`);
-    return { notifiedCount: 0 };
+    return { notifiedCount: 0, totalSubscribers: 0, failedCount: 0, errors: [] };
   }
 
   console.log(`[KIVO Notification] Broadcasting launch notification to ${pendingList.length} subscribers for ${normPlatform}...`);
 
   const notifiedIds = [];
+  const errors = [];
   let successCount = 0;
 
   for (const sub of pendingList) {
@@ -1645,16 +1646,21 @@ export async function notifySubscribersForPlatform(platform, version = '1.0.0', 
         version: version || '1.0.0',
         downloadUrl: downloadUrl || `/api/download/${normPlatform}`,
       });
-      if (emailResult && !emailResult.skipped) {
+      if (emailResult && emailResult.success) {
         successCount++;
+        notifiedIds.push(sub.id);
+      } else {
+        const errMsg = emailResult?.error || (emailResult?.skipped ? emailResult.reason : 'Email delivery rejected');
+        errors.push({ email: sub.email, error: errMsg });
+        console.warn(`[KIVO Notification] Email send failed for ${sub.email}:`, errMsg);
       }
-      notifiedIds.push(sub.id);
     } catch (sendErr) {
+      errors.push({ email: sub.email, error: sendErr.message });
       console.warn(`[KIVO Notification] Failed to notify ${sub.email}:`, sendErr.message);
     }
   }
 
-  // Mark notified in MySQL and JSON
+  // Mark ONLY successfully delivered subscribers in MySQL and JSON
   if (notifiedIds.length > 0) {
     try {
       await markSubscribersNotifiedInMysql(notifiedIds);
@@ -1674,6 +1680,42 @@ export async function notifySubscribersForPlatform(platform, version = '1.0.0', 
     }
   }
 
-  console.log(`[KIVO Notification] Finished notification broadcast: ${successCount} emails sent successfully.`);
-  return { notifiedCount: successCount, totalSubscribers: pendingList.length };
+  console.log(`[KIVO Notification] Finished broadcast: ${successCount} sent, ${errors.length} failed.`);
+  return {
+    notifiedCount: successCount,
+    totalSubscribers: pendingList.length,
+    failedCount: errors.length,
+    errors,
+  };
+}
+
+export async function resetReleaseSubscriberStatus(subscriberId) {
+  // Reset in MySQL
+  try {
+    const pool = await getMysqlPool();
+    if (pool) {
+      if (subscriberId === 'all') {
+        await pool.query("UPDATE kivo_release_subscribers SET status = 'pending', notified_at = NULL");
+      } else {
+        await pool.query("UPDATE kivo_release_subscribers SET status = 'pending', notified_at = NULL WHERE id = ?", [subscriberId]);
+      }
+    }
+  } catch (err) {
+    console.warn('[KIVO DB] MySQL reset subscriber notice:', err.message);
+  }
+
+  // Reset in JSON
+  const subscribers = readJsonSafely(SUBSCRIBERS_FILE, []);
+  let updated = false;
+  for (const sub of subscribers) {
+    if (subscriberId === 'all' || sub.id === subscriberId) {
+      sub.status = 'pending';
+      sub.notified_at = null;
+      updated = true;
+    }
+  }
+  if (updated) {
+    writeJsonAtomically(SUBSCRIBERS_FILE, subscribers);
+  }
+  return { success: true };
 }
