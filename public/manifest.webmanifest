@@ -1,0 +1,24 @@
+{
+  "name": "KIVO Browser — Browse Freely",
+  "short_name": "KIVO",
+  "description": "Ultra-fast, private, secure desktop & mobile browser engineered for speed and privacy.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/kivo-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64 32x32",
+      "type": "image/png"
+    }
+  ]
+}

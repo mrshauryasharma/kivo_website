@@ -8,3 +8,17 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// Register high-performance offline Service Worker
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        console.log('[KIVO Service Worker] Active and caching shell for offline resilience:', reg.scope);
+      })
+      .catch((err) => {
+        console.warn('[KIVO Service Worker] Registration notice:', err);
+      });
+  });
+}

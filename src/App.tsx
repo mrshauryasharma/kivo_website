@@ -22,6 +22,18 @@ import { CmsProvider } from './context/CmsContext';
 
 export function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' ? !navigator.onLine : false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Listen for browser navigation (back/forward) and custom navigation
   useEffect(() => {
@@ -163,6 +175,14 @@ export function App() {
             onClose={() => setSupportModalOpen(false)}
             onNavigateTrack={(ticketId) => navigateTo(`/track-ticket?ticketId=${encodeURIComponent(ticketId)}`)}
           />
+
+          {/* Offline Mode Indicator */}
+          {isOffline && (
+            <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/95 border border-amber-500/40 text-amber-300 text-xs font-medium backdrop-blur-md shadow-2xl animate-fade-in pointer-events-none">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>⚡ Offline Mode — KIVO running from local cache</span>
+            </div>
+          )}
         </div>
       </MotionConfig>
     </CmsProvider>

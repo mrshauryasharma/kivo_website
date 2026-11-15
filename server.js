@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 
 import {
   UPLOADS_DIR,
@@ -99,6 +100,23 @@ const app = express();
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+// High-performance gzip/deflate compression for responses (reduces payloads by up to 75%)
+app.use(
+  compression({
+    filter: (req, res) => {
+      // Do not compress binary downloads or chunk uploads
+      if (
+        req.path.startsWith('/api/download/') ||
+        req.path.startsWith('/api/admin/upload')
+      ) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+    threshold: 1024,
+  })
+);
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
@@ -697,10 +715,20 @@ app.use(
     redirect: false,
     maxAge: '1d',
     setHeaders: (res, filePath) => {
+      // Hashed build assets: immutable 1-year cache
       if (filePath.includes(path.sep + 'assets' + path.sep)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (
+        filePath.endsWith('sw.js') ||
+        filePath.endsWith('manifest.webmanifest')
+      ) {
+        // Service Worker & Manifest: always fresh, never stale
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       } else if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else {
+        // Icons, logos, favicon: 1-day public cache
+        res.setHeader('Cache-Control', 'public, max-age=86400');
       }
     },
   })
@@ -716,6 +744,7 @@ app.use((req, res) => {
   }
 
   if (fs.existsSync(indexPath)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(indexPath);
   } else {
     res.status(404).send('Application build not found. Please run npm run build.');
