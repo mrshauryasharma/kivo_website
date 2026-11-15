@@ -91,6 +91,9 @@ import {
   getSystemAnalytics,
   findUserById,
   reconcileInstallers,
+  addReleaseSubscriber,
+  listAllReleaseSubscribers,
+  notifySubscribersForPlatform,
 } from './server/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -269,7 +272,26 @@ app.get('/api/download/:platform', async (req, res) => {
   await handleDownloadStream(req, res, platform);
 });
 
-// Health check endpoint for database & persistent installer storage status
+// Public Release Notification Subscription (Early Access / Notify on Launch)
+app.post('/api/notifications/subscribe', async (req, res) => {
+  try {
+    const { email, platform } = req.body || {};
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPlatform = typeof platform === 'string' ? platform.trim().toLowerCase() : 'android';
+
+    await addReleaseSubscriber(cleanEmail, cleanPlatform);
+    res.status(200).json({
+      success: true,
+      message: 'You have been registered! We will email you the moment the official build goes live.',
+    });
+  } catch (err) {
+    console.error('[KIVO API] Error subscribing to release notification:', err);
+    res.status(500).json({ error: 'Failed to register notification. Please try again.' });
+  }
+});
 app.get('/api/health/db', async (req, res) => {
   try {
     const health = await checkMysqlHealth();
@@ -292,6 +314,7 @@ app.get('/api/health/db', async (req, res) => {
 // Authentication Endpoints
 // -------------------------------------------------------------
 app.post('/api/auth/login', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   const { username, password } = req.body || {};
   const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
 
@@ -344,6 +367,7 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 app.get('/api/auth/me', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   const sessionCookie = req.cookies?.kivo_admin_session;
   const session = getSession(sessionCookie);
 
@@ -702,6 +726,50 @@ app.patch('/api/admin/users/:id/status', requireAdminAuth, async (req, res) => {
     res.status(200).json({ success: true, user: { id: user.id, email: user.email, status: user.status } });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Release Subscribers Management
+app.get('/api/admin/subscribers', requireAdminAuth, async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const { platform } = req.query;
+    const subscribers = await listAllReleaseSubscribers(platform || null);
+    const counts = {
+      total: subscribers.length,
+      pending: subscribers.filter((s) => s.status === 'pending').length,
+      notified: subscribers.filter((s) => s.status === 'notified').length,
+      byPlatform: {
+        android: subscribers.filter((s) => s.platform === 'android').length,
+        windows: subscribers.filter((s) => s.platform === 'windows').length,
+        'mac-arm64': subscribers.filter((s) => s.platform === 'mac-arm64' || s.platform === 'macos').length,
+        'mac-intel': subscribers.filter((s) => s.platform === 'mac-intel').length,
+      },
+    };
+    res.status(200).json({ success: true, subscribers, counts });
+  } catch (err) {
+    console.error('[KIVO API] Error fetching subscribers:', err);
+    res.status(500).json({ error: 'Failed to retrieve subscribers.' });
+  }
+});
+
+// Admin: Broadcast launch notification to subscribers
+app.post('/api/admin/subscribers/notify', requireAdminAuth, async (req, res) => {
+  try {
+    const { platform, version, downloadUrl } = req.body || {};
+    if (!platform) {
+      return res.status(400).json({ error: 'Platform parameter is required.' });
+    }
+    const result = await notifySubscribersForPlatform(platform, version, downloadUrl);
+    res.status(200).json({
+      success: true,
+      message: `Notification broadcast completed. Sent to ${result.notifiedCount} subscriber(s).`,
+      notifiedCount: result.notifiedCount,
+      totalSubscribers: result.totalSubscribers,
+    });
+  } catch (err) {
+    console.error('[KIVO API] Error sending subscriber notifications:', err);
+    res.status(500).json({ error: 'Failed to broadcast notifications: ' + err.message });
   }
 });
 

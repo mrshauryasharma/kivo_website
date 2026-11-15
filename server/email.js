@@ -457,3 +457,63 @@ export async function sendCustomerEmail({ to, subject, html, text }) {
     text,
   });
 }
+
+// -------------------------------------------------------------
+// H. Release Live Notification (Notify on Launch)
+// -------------------------------------------------------------
+export async function sendReleaseLiveNotification({ to, platform, version, downloadUrl }) {
+  const platformNames = {
+    android: 'Android Mobile (APK)',
+    windows: 'Windows Desktop (EXE)',
+    'mac-arm64': 'macOS Apple Silicon (DMG)',
+    'mac-intel': 'macOS Intel (DMG)',
+    macos: 'macOS (Apple Silicon & Intel DMG)',
+  };
+  const platformName = platformNames[platform] || platform;
+  const config = getEmailConfig();
+  const directLink = downloadUrl
+    ? (downloadUrl.startsWith('http') ? downloadUrl : `${config.appBaseUrl}${downloadUrl}`)
+    : `${config.appBaseUrl}/#download`;
+
+  const subject = `🚀 KIVO Browser for ${platformName} is Officially LIVE!`;
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #050505; color: #f1f5f9; padding: 40px 20px; margin: 0;">
+        <div style="max-width: 580px; margin: 0 auto; background: #0b0f19; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px;">
+          <div style="margin-bottom: 24px; text-align: center;">
+            <span style="font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #38bdf8;">KIVO BROWSER</span>
+          </div>
+          <h2 style="color: #38bdf8; margin-top: 0; font-size: 22px;">Good News! KIVO Browser is Now Live</h2>
+          <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">
+            Sir/Madam, the wait is officially over! The official build of <strong>KIVO Browser for ${platformName}</strong> (Version ${version || '1.0.0'}) has dropped and is now live for instant download.
+          </p>
+          <div style="margin: 32px 0; text-align: center;">
+            <a href="${directLink}" style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4, #a855f7); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 20px rgba(6,182,212,0.4);">
+              Download for ${platformName} Now
+            </a>
+          </div>
+          <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">
+            What makes KIVO different:
+            <br>• <strong>Zero Telemetry:</strong> Strict privacy by default with ad/tracker shielding
+            <br>• <strong>Hyper-Fast Core:</strong> Chromium optimized with low memory consumption
+            <br>• <strong>AI-Powered Sidebar:</strong> Integrated workspace assistance
+          </p>
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0;" />
+          <p style="font-size: 11px; color: #64748b; text-align: center; margin-bottom: 0;">
+            You received this notification because you subscribed on kivobrowser.com for release alerts.
+          </p>
+        </div>
+      </body>
+    </html>
+  `.trim();
+
+  const text = `KIVO Browser for ${platformName} is officially LIVE!\n\nDownload directly here: ${directLink}\n\nVersion: ${version || '1.0.0'}\n\nThank you for choosing privacy-first browsing.`;
+
+  return postResendEmail({
+    to,
+    subject,
+    html,
+    text,
+  });
+}

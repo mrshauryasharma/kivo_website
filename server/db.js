@@ -7,6 +7,7 @@ import {
   METADATA_FILE,
   USERS_FILE,
   RELEASES_FILE,
+  SUBSCRIBERS_FILE,
   PLATFORM_RULES,
   LEGACY_METADATA_FILE,
   resolveInstallerFilePath,
@@ -23,7 +24,12 @@ import {
   restoreInstallerBinaryFromMysql,
   saveInstallerBinaryToMysql,
   deleteInstallerBinaryFromMysql,
+  saveReleaseSubscriberToMysql,
+  listReleaseSubscribersFromMysql,
+  getPendingSubscribersFromMysql,
+  markSubscribersNotifiedInMysql,
 } from './mysql.js';
+import { sendReleaseLiveNotification } from './email.js';
 
 // -------------------------------------------------------------
 // Helper: Safe Atomic File I/O with Automatic Backups
@@ -1542,4 +1548,132 @@ export async function getSystemAnalytics() {
       total: totalDownloads,
     },
   };
+}
+
+// -------------------------------------------------------------
+// Release Notification Subscribers (Notify on Launch)
+// -------------------------------------------------------------
+export async function addReleaseSubscriber(email, platform) {
+  if (!email || !email.includes('@')) {
+    throw new Error('Valid email address is required.');
+  }
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanPlatform = (platform || 'android').trim().toLowerCase();
+
+  // 1. Save to local JSON backup
+  const subscribers = readJsonSafely(SUBSCRIBERS_FILE, []);
+  const existingIdx = subscribers.findIndex(
+    (s) => s.email.toLowerCase() === cleanEmail && s.platform === cleanPlatform
+  );
+  const now = new Date().toISOString();
+  if (existingIdx === -1) {
+    subscribers.push({
+      id: crypto.randomUUID(),
+      email: cleanEmail,
+      platform: cleanPlatform,
+      status: 'pending',
+      created_at: now,
+      notified_at: null,
+    });
+    writeJsonAtomically(SUBSCRIBERS_FILE, subscribers);
+  }
+
+  // 2. Save to MySQL
+  try {
+    await saveReleaseSubscriberToMysql(cleanEmail, cleanPlatform);
+  } catch (err) {
+    console.warn('[KIVO DB] MySQL subscriber save notice:', err.message);
+  }
+
+  return { success: true, email: cleanEmail, platform: cleanPlatform };
+}
+
+export async function listAllReleaseSubscribers(platformFilter = null) {
+  // Try MySQL first
+  try {
+    const dbRows = await listReleaseSubscribersFromMysql(platformFilter);
+    if (dbRows && dbRows.length > 0) {
+      return dbRows;
+    }
+  } catch (err) {
+    console.warn('[KIVO DB] MySQL subscriber list notice:', err.message);
+  }
+
+  // Fallback to JSON
+  const subscribers = readJsonSafely(SUBSCRIBERS_FILE, []);
+  if (!platformFilter || platformFilter === 'all') {
+    return subscribers;
+  }
+  return subscribers.filter((s) => s.platform === platformFilter);
+}
+
+export async function notifySubscribersForPlatform(platform, version = '1.0.0', downloadUrl = null) {
+  const normPlatform = (platform || 'android').trim().toLowerCase();
+  console.log(`[KIVO Notification] Checking subscribers to notify for ${normPlatform}...`);
+
+  // 1. Fetch pending subscribers
+  let pendingList = [];
+  try {
+    pendingList = await getPendingSubscribersFromMysql(normPlatform);
+  } catch (err) {
+    console.warn('[KIVO Notification] MySQL pending fetch notice:', err.message);
+  }
+
+  // Fallback to JSON if DB returned none
+  if (!pendingList || pendingList.length === 0) {
+    const jsonSubs = readJsonSafely(SUBSCRIBERS_FILE, []);
+    pendingList = jsonSubs.filter(
+      (s) => (s.platform === normPlatform || s.platform === 'all') && s.status === 'pending'
+    );
+  }
+
+  if (!pendingList || pendingList.length === 0) {
+    console.log(`[KIVO Notification] No pending subscribers for ${normPlatform}.`);
+    return { notifiedCount: 0 };
+  }
+
+  console.log(`[KIVO Notification] Broadcasting launch notification to ${pendingList.length} subscribers for ${normPlatform}...`);
+
+  const notifiedIds = [];
+  let successCount = 0;
+
+  for (const sub of pendingList) {
+    try {
+      const emailResult = await sendReleaseLiveNotification({
+        to: sub.email,
+        platform: normPlatform,
+        version: version || '1.0.0',
+        downloadUrl: downloadUrl || `/api/download/${normPlatform}`,
+      });
+      if (emailResult && !emailResult.skipped) {
+        successCount++;
+      }
+      notifiedIds.push(sub.id);
+    } catch (sendErr) {
+      console.warn(`[KIVO Notification] Failed to notify ${sub.email}:`, sendErr.message);
+    }
+  }
+
+  // Mark notified in MySQL and JSON
+  if (notifiedIds.length > 0) {
+    try {
+      await markSubscribersNotifiedInMysql(notifiedIds);
+    } catch {}
+
+    const jsonSubs = readJsonSafely(SUBSCRIBERS_FILE, []);
+    let jsonUpdated = false;
+    for (const item of jsonSubs) {
+      if (notifiedIds.includes(item.id)) {
+        item.status = 'notified';
+        item.notified_at = new Date().toISOString();
+        jsonUpdated = true;
+      }
+    }
+    if (jsonUpdated) {
+      writeJsonAtomically(SUBSCRIBERS_FILE, jsonSubs);
+    }
+  }
+
+  console.log(`[KIVO Notification] Finished notification broadcast: ${successCount} emails sent successfully.`);
+  return { notifiedCount: successCount, totalSubscribers: pendingList.length };
 }

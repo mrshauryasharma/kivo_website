@@ -258,6 +258,18 @@ export async function createTablesIfNotExist() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    // 13. Release Notification Subscribers (Notify on Launch)
+    `CREATE TABLE IF NOT EXISTS kivo_release_subscribers (
+      id VARCHAR(64) PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      platform VARCHAR(32) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      notified_at DATETIME DEFAULT NULL,
+      UNIQUE KEY uq_email_plat (email, platform),
+      INDEX idx_plat_status (platform, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
   ];
 
   try {
@@ -712,5 +724,84 @@ export async function deleteTicketFromMysql(ticketId) {
     await currentPool.query('DELETE FROM kivo_support_tickets WHERE id = ?', [ticketId]);
   } catch (err) {
     console.warn('[KIVO MySQL] Error deleting ticket from MySQL:', err.message);
+  }
+}
+
+// -------------------------------------------------------------
+// Release Notification Subscribers (Notify on Launch)
+// -------------------------------------------------------------
+export async function saveReleaseSubscriberToMysql(email, platform) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return { success: false, reason: 'MySQL unavailable' };
+
+    const id = crypto.randomUUID();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPlatform = platform.trim().toLowerCase();
+
+    await currentPool.query(
+      `INSERT INTO kivo_release_subscribers (id, email, platform, status, created_at)
+       VALUES (?, ?, ?, 'pending', NOW())
+       ON DUPLICATE KEY UPDATE status = 'pending'`,
+      [id, cleanEmail, cleanPlatform]
+    );
+
+    return { success: true, id };
+  } catch (err) {
+    console.error('[KIVO MySQL] Error saving release subscriber:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function listReleaseSubscribersFromMysql(platformFilter = null) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return [];
+
+    let query = 'SELECT id, email, platform, status, created_at, notified_at FROM kivo_release_subscribers';
+    const params = [];
+
+    if (platformFilter && platformFilter !== 'all') {
+      query += ' WHERE platform = ?';
+      params.push(platformFilter);
+    }
+    query += ' ORDER BY created_at DESC';
+
+    const [rows] = await currentPool.query(query, params);
+    return rows;
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error listing subscribers:', err.message);
+    return [];
+  }
+}
+
+export async function getPendingSubscribersFromMysql(platform) {
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return [];
+
+    const [rows] = await currentPool.query(
+      "SELECT id, email, platform FROM kivo_release_subscribers WHERE (platform = ? OR platform = 'all') AND status = 'pending'",
+      [platform]
+    );
+    return rows;
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error fetching pending subscribers:', err.message);
+    return [];
+  }
+}
+
+export async function markSubscribersNotifiedInMysql(subscriberIds) {
+  if (!subscriberIds || subscriberIds.length === 0) return;
+  try {
+    const currentPool = await getMysqlPool();
+    if (!currentPool) return;
+
+    await currentPool.query(
+      "UPDATE kivo_release_subscribers SET status = 'notified', notified_at = NOW() WHERE id IN (?)",
+      [subscriberIds]
+    );
+  } catch (err) {
+    console.warn('[KIVO MySQL] Error marking subscribers notified:', err.message);
   }
 }

@@ -1,5 +1,5 @@
-// KIVO Browser — Offline Service Worker & Performance Cache
-const CACHE_NAME = 'kivo-pwa-v1';
+// KIVO Browser — Offline Service Worker & Performance Cache v2
+const CACHE_NAME = 'kivo-pwa-v2';
 
 const STATIC_SHELL = [
   '/',
@@ -17,11 +17,11 @@ self.addEventListener('install', (event) => {
       .open(CACHE_NAME)
       .then((cache) => cache.addAll(STATIC_SHELL))
       .then(() => self.skipWaiting())
-      .catch((err) => console.warn('[KIVO SW] Pre-cache warning:', err))
+      .catch((err) => console.warn('[KIVO SW] Pre-cache notice:', err))
   );
 });
 
-// Activate: Clean older caches and claim clients immediately
+// Activate: Purge ALL older caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -30,6 +30,7 @@ self.addEventListener('activate', (event) => {
         Promise.all(
           keys.map((key) => {
             if (key !== CACHE_NAME) {
+              console.log('[KIVO SW] Purging old cache:', key);
               return caches.delete(key);
             }
           })
@@ -39,7 +40,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Strategic routing for ultra-fast load (<1.5s) & complete offline navigation
+// Fetch: Strategic routing
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -48,16 +49,20 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Bypass installer binary streams and admin chunk uploads
+  // 1. ABSOLUTE BYPASS FOR ADMIN PORTAL & AUTHENTICATION
+  // Never intercept, cache, or interfere with admin panel or auth operations
   if (
+    url.pathname.startsWith('/kivoadmin') ||
+    url.pathname.startsWith('/api/auth/') ||
+    url.pathname.startsWith('/api/admin/') ||
+    url.pathname.startsWith('/api/support/ticket') ||
     url.pathname.startsWith('/api/download/') ||
-    url.pathname.startsWith('/api/admin/upload') ||
     url.pathname === '/health'
   ) {
-    return;
+    return; // Pass directly to network
   }
 
-  // 1. Navigation Requests (User visits or searches ANY URL on the domain while online or offline)
+  // 2. Navigation Requests (User visits or enters ANY URL on the domain)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -85,10 +90,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Read-only API Endpoints (CMS content & download metadata): Network-first with cache fallback
+  // 3. Public Read-Only APIs (CMS content & download metadata): Network-first with cache fallback
   if (
-    url.pathname.startsWith('/api/content') ||
-    url.pathname.startsWith('/api/downloads/status')
+    url.pathname === '/api/content' ||
+    url.pathname === '/api/downloads/status'
   ) {
     event.respondWith(
       fetch(request)
@@ -110,7 +115,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Static Assets (JS, CSS, Images, Fonts): Cache-First with Stale-While-Revalidate
+  // 4. Any other API requests must NOT be cached
+  if (url.pathname.startsWith('/api/')) {
+    return; // Direct network
+  }
+
+  // 5. Static Assets (JS, CSS, Images, Fonts): Cache-First with Stale-While-Revalidate
   const isStaticAsset =
     url.pathname.startsWith('/assets/') ||
     url.pathname.endsWith('.js') ||
@@ -126,7 +136,6 @@ self.addEventListener('fetch', (event) => {
   if (isStaticAsset) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
-        // Fetch fresh copy in background to keep cache up-to-date
         const fetchPromise = fetch(request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.ok) {
@@ -137,31 +146,14 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => null);
 
-        // If in cache, return immediately (instant sub-10ms response)
+        // Instant response if in cache
         if (cachedResponse) {
           return cachedResponse;
         }
 
-        // Otherwise wait for network response
         return fetchPromise;
       })
     );
     return;
   }
-
-  // Default: Network with Cache Fallback
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      return (
-        cached ||
-        fetch(request).then((response) => {
-          if (response && response.ok && request.url.startsWith('http')) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-      );
-    })
-  );
 });

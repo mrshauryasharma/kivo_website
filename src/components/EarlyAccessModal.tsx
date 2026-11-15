@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bell, CheckCircle2 } from 'lucide-react';
+import { X, Bell, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
 import { WindowsIcon, AppleIcon, AndroidIcon } from './Hero';
 
 interface EarlyAccessModalProps {
@@ -16,9 +16,13 @@ export const EarlyAccessModal: React.FC<EarlyAccessModalProps> = ({
 }) => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleClose = useCallback(() => {
     setIsSubmitted(false);
+    setIsSubmitting(false);
+    setSubmitError(null);
     setEmail('');
     onClose();
   }, [onClose]);
@@ -35,10 +39,34 @@ export const EarlyAccessModal: React.FC<EarlyAccessModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() && email.includes('@')) {
+    if (!email.trim() || !email.includes('@')) {
+      setSubmitError('Please enter a valid email address.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), platform }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSubmitError(data.error || 'Failed to register notification. Please try again.');
+        return;
+      }
+
       setIsSubmitted(true);
+    } catch {
+      setSubmitError('Network error connecting to notification server. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -111,6 +139,13 @@ export const EarlyAccessModal: React.FC<EarlyAccessModalProps> = ({
                 The desktop installer is currently undergoing final security checks and performance validation. Register below to be notified the moment the public binary drops.
               </p>
 
+              {submitError && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label htmlFor="early-access-email" className="block text-xs font-semibold text-slate-300 mb-2">
@@ -120,19 +155,30 @@ export const EarlyAccessModal: React.FC<EarlyAccessModalProps> = ({
                     id="early-access-email"
                     type="email"
                     required
+                    disabled={isSubmitting}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/[0.12] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan focus:ring-1 focus:ring-kivo-cyan transition-colors"
+                    className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/[0.12] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan focus:ring-1 focus:ring-kivo-cyan transition-colors disabled:opacity-50"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple font-semibold text-white text-sm shadow-lg shadow-kivo-blue/25 hover:opacity-95 transition-all flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple font-semibold text-white text-sm shadow-lg shadow-kivo-blue/25 hover:opacity-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Bell className="w-4 h-4" />
-                  <span>Notify Me on Launch</span>
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Registering...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-4 h-4" />
+                      <span>Notify Me on Launch</span>
+                    </>
+                  )}
                 </button>
               </form>
 

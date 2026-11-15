@@ -11,6 +11,7 @@ import {
 } from './config.js';
 import { getMetadata, saveMetadata } from './installers.js';
 import { syncInstallerMetadataToMysql, saveInstallerBinaryToMysql } from './mysql.js';
+import { notifySubscribersForPlatform } from './db.js';
 import { assertStorageAvailable } from './storageMonitor.js';
 
 // Active upload sessions stored in memory: Map<uploadId, UploadSession>
@@ -288,6 +289,19 @@ export async function completeUpload(uploadId) {
   } catch (dbErr) {
     console.warn(`[KIVO Upload] Notice: Binary storage in MySQL skipped:`, dbErr.message);
   }
+
+  // Auto-broadcast launch notification to customers who subscribed for this platform!
+  notifySubscribersForPlatform(
+    session.platform,
+    session.version,
+    `/api/download/${session.platform}`
+  )
+    .then((res) => {
+      console.log(`[KIVO Notification] Auto-notified ${res.notifiedCount} subscriber(s) for ${session.platform}.`);
+    })
+    .catch((err) => {
+      console.warn(`[KIVO Notification] Auto-notification notice:`, err.message);
+    });
 
   // Clean up chunk files and active session
   try {

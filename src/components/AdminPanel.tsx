@@ -7,6 +7,7 @@ import { AdminTicketsTab } from './admin/AdminTicketsTab';
 import { AdminUsersTab } from './admin/AdminUsersTab';
 import { AdminAnalyticsTab } from './admin/AdminAnalyticsTab';
 import { AdminReleasesTab } from './admin/AdminReleasesTab';
+import { AdminSubscribersTab } from './admin/AdminSubscribersTab';
 import logoImg from '../assets/kivo-logo.png';
 import {
   ShieldCheck,
@@ -22,6 +23,7 @@ import {
   Users,
   BarChart3,
   Sparkles,
+  Bell,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -37,9 +39,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string>('');
   
-  // Navigation tabs: 'installers' | 'cms' | 'tickets' | 'users' | 'analytics' | 'releases'
+  // Navigation tabs: 'installers' | 'cms' | 'tickets' | 'users' | 'analytics' | 'releases' | 'subscribers'
   const [activeTab, setActiveTab] = useState<
-    'installers' | 'cms' | 'tickets' | 'users' | 'analytics' | 'releases'
+    'installers' | 'cms' | 'tickets' | 'users' | 'analytics' | 'releases' | 'subscribers'
   >('installers');
 
   // Installer states
@@ -55,7 +57,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     setIsLoadingInstallers(true);
     try {
       const res = await fetch('/api/admin/installers', {
-        headers: { 'X-CSRF-Token': token || csrfToken },
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'X-CSRF-Token': token || csrfToken,
+          'Cache-Control': 'no-cache, no-store',
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -73,12 +80,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     }
   }, [csrfToken]);
 
-  // Check existing session on mount
+  // Check existing session on mount ONLY
   useEffect(() => {
     let isCancelled = false;
     const runAuthCheck = async () => {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' },
+        });
         const data = await res.json();
         if (isCancelled) return;
         if (data.authenticated) {
@@ -98,7 +109,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     return () => {
       isCancelled = true;
     };
-  }, [fetchInstallers]);
+  }, []); // Run ONCE on mount, never re-trigger on state changes
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +119,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+        },
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
@@ -380,6 +396,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
               <Sparkles className="w-3.5 h-3.5" />
               <span>Update Center</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('subscribers')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                activeTab === 'subscribers'
+                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span>Subscribers</span>
+            </button>
           </div>
 
           {/* Top Right Controls */}
@@ -426,6 +455,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         {activeTab === 'analytics' && <AdminAnalyticsTab csrfToken={csrfToken} />}
 
         {activeTab === 'releases' && <AdminReleasesTab csrfToken={csrfToken} />}
+
+        {activeTab === 'subscribers' && <AdminSubscribersTab csrfToken={csrfToken} />}
       </main>
 
       {/* Footer */}
