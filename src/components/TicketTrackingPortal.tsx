@@ -317,7 +317,7 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
           <button
             onClick={onNavigateHome}
             type="button"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-slate-300 hover:text-white border border-white/[0.08] transition-all"
+            className="btn-3d btn-3d-glass flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:text-white transition-all shadow-md"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to Site</span>
@@ -328,15 +328,15 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
       {/* Main Content Area */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 flex-grow w-full">
         {step !== 'view' ? (
-          /* Step 1 & 2: Verification Screen */
-          <div className="max-w-md mx-auto py-8">
+          /* Step 1 & 2: Verification Screen (3D Elevated) */
+          <div className="max-w-md mx-auto py-8 perspective-1000">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-3xl bg-gradient-to-b from-[#0F1628]/90 via-[#0A0F1D]/90 to-[#070B14]/95 border border-white/[0.1] p-8 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+              className="rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0F1628]/95 via-[#0A0F1D]/95 to-[#070B14]/98 border border-white/[0.14] p-8 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
             >
-              <div className="text-center mb-8">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-kivo-blue/20 to-kivo-cyan/20 border border-kivo-cyan/30 flex items-center justify-center text-kivo-cyan shadow-lg mb-4">
+              <div className="text-center mb-8 translate-z-4">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-kivo-blue/20 to-kivo-cyan/20 border border-kivo-cyan/40 flex items-center justify-center text-kivo-cyan shadow-[0_6px_16px_rgba(0,217,245,0.25)] mb-4 translate-z-6">
                   <LifeBuoy className="w-7 h-7" />
                 </div>
                 <h2 className="text-2xl font-extrabold text-white font-display tracking-tight">
@@ -348,21 +348,21 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
               </div>
 
               {errorMessage && (
-                <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 translate-z-2">
                   <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>{errorMessage}</span>
                 </div>
               )}
 
               {infoMessage && (
-                <div className="mb-6 p-3.5 rounded-xl bg-kivo-blue/15 border border-kivo-cyan/30 text-kivo-cyan text-xs flex items-center gap-2">
+                <div className="mb-6 p-3.5 rounded-xl bg-kivo-blue/15 border border-kivo-cyan/30 text-kivo-cyan text-xs flex items-center gap-2 translate-z-2">
                   <CheckCircle2 className="w-4 h-4 text-kivo-cyan shrink-0" />
                   <span>{infoMessage}</span>
                 </div>
               )}
 
               {step === 'input' ? (
-                <form onSubmit={handleRequestOtp} className="space-y-4">
+                <form onSubmit={handleRequestOtp} className="space-y-4 translate-z-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                       Ticket Reference ID
@@ -373,7 +373,7 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
                       value={ticketIdInput}
                       onChange={(e) => setTicketIdInput(e.target.value.toUpperCase())}
                       placeholder="e.g. KIVO-2026-A8X92P"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-kivo-cyan"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-kivo-cyan shadow-inner"
                     />
                   </div>
 
@@ -387,30 +387,30 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
                       placeholder="alex@example.com or +1 555 123 4567"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan shadow-inner"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple font-semibold text-white text-xs shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full mt-2 py-3.5 rounded-xl btn-3d btn-3d-cyan font-bold text-slate-900 text-xs shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isLoading ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <RefreshCw className="w-4 h-4 animate-spin text-slate-900" />
                         <span>Sending Verification Code...</span>
                       </>
                     ) : (
                       <>
-                        <KeyRound className="w-4 h-4" />
+                        <KeyRound className="w-4 h-4 text-slate-900" />
                         <span>Send Verification Code</span>
                       </>
                     )}
                   </button>
                 </form>
               ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <form onSubmit={handleVerifyOtp} className="space-y-4 translate-z-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                       Enter 6-Digit Code
@@ -422,23 +422,23 @@ export const TicketTrackingPortal: React.FC<TicketTrackingPortalProps> = ({
                       value={otpInput}
                       onChange={(e) => setOtpInput(e.target.value.trim())}
                       placeholder="e.g. 482910"
-                      className="w-full px-3.5 py-3 rounded-xl bg-black/40 border border-white/10 text-center font-mono font-bold text-lg tracking-widest text-kivo-cyan focus:outline-none focus:border-kivo-cyan"
+                      className="w-full px-3.5 py-3 rounded-xl bg-black/50 border border-white/10 text-center font-mono font-bold text-lg tracking-widest text-kivo-cyan focus:outline-none focus:border-kivo-cyan shadow-inner"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple font-semibold text-white text-xs shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-3.5 rounded-xl btn-3d btn-3d-cyan font-bold text-slate-900 text-xs shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isLoading ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <RefreshCw className="w-4 h-4 animate-spin text-slate-900" />
                         <span>Unlocking Ticket...</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 className="w-4 h-4 text-slate-900" />
                         <span>Verify & Open Ticket</span>
                       </>
                     )}

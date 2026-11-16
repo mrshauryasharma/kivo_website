@@ -73,7 +73,7 @@ export const BrowserShowcase: React.FC = () => {
           </motion.p>
         </div>
 
-        {/* Interactive View Selector Buttons */}
+        {/* Interactive View Selector Buttons (3D tactile) */}
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-10 max-w-4xl mx-auto">
           {tabsConfig.map((tab) => {
             const Icon = tab.icon;
@@ -83,24 +83,25 @@ export const BrowserShowcase: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ${
+                className={`btn-3d flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ${
                   isActive
-                    ? 'bg-gradient-to-r from-kivo-blue via-[#0c73e8] to-kivo-purple text-white shadow-glow-blue border border-white/20 scale-105'
-                    : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white border border-white/[0.06]'
+                    ? 'btn-3d-cyan text-slate-900 shadow-glow-cyan'
+                    : 'bg-white/[0.05] hover:bg-white/[0.09] text-slate-300 hover:text-white border border-white/[0.1] shadow-md'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Dedicated Browser Showcase Frame */}
-        <motion.div
-          layout
-          className="relative max-w-5xl mx-auto rounded-2xl bg-[#080C16] border border-white/[0.12] shadow-2xl overflow-hidden backdrop-blur-2xl"
-        >
+        {/* Dedicated Browser Showcase Frame (3D Elevated Stage) */}
+        <div className="perspective-1500 max-w-5xl mx-auto">
+          <motion.div
+            layout
+            className="relative card-3d preserve-3d rounded-2xl bg-[#080C16] border border-white/[0.14] shadow-2xl overflow-hidden backdrop-blur-2xl"
+          >
           {/* Top Window Chrome: Tab Strip */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-[#060912] border-b border-white/[0.07] select-none">
             {/* Window control dots */}
@@ -498,6 +499,7 @@ export const BrowserShowcase: React.FC = () => {
             </AnimatePresence>
           </div>
         </motion.div>
+        </div>
       </div>
     </section>
   );

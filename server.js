@@ -874,7 +874,7 @@ app.use((req, res) => {
 
 app.use(safeErrorHandler);
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`[KIVO Web Server] Listening on http://${HOST}:${PORT}`);
   console.log(`[KIVO Web Server] Serving static files from: ${distPath}`);
   console.log(`[KIVO Web Server] Installers storage path: ${UPLOADS_DIR}`);
@@ -894,4 +894,40 @@ app.listen(PORT, HOST, () => {
     .catch((err) => {
       console.warn('[KIVO Web Server] MySQL initialization notice:', err.message);
     });
+});
+
+// -------------------------------------------------------------
+// Graceful Shutdown & Process Diagnostics
+// -------------------------------------------------------------
+function gracefulShutdown(signal) {
+  console.log(`[KIVO Web Server] Received ${signal}. Initiating graceful shutdown...`);
+  server.close(async () => {
+    console.log('[KIVO Web Server] HTTP server closed.');
+    try {
+      const pool = await getMysqlPool();
+      if (pool) {
+        await pool.end();
+        console.log('[KIVO Web Server] MySQL connection pool closed.');
+      }
+    } catch {
+      // Pool may already be inactive
+    }
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error('[KIVO Web Server] Forceful shutdown timeout exceeded.');
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[KIVO Web Server] Unhandled Promise Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[KIVO Web Server] Uncaught Exception:', error);
 });

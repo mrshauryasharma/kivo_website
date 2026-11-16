@@ -107,26 +107,26 @@ export const CeoSection: React.FC = () => {
           </motion.p>
         </div>
 
-        {/* Main Leadership Profile Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-6xl mx-auto">
+        {/* Main Leadership Profile Grid (3D Depth) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-6xl mx-auto perspective-1000">
           {/* Left Column: Executive Identity & Credentials Card */}
           <motion.div
             initial={{ opacity: 0, x: -25 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
-            className="lg:col-span-5 rounded-3xl bg-gradient-to-b from-[#0F1628]/90 via-[#0A0F1D]/90 to-[#070B14]/95 border border-white/[0.1] p-8 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden flex flex-col justify-between"
+            className="lg:col-span-5 rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0F1628]/95 via-[#0A0F1D]/95 to-[#070B14]/98 border border-white/[0.14] p-8 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden flex flex-col justify-between"
           >
             {/* Top decorative gradient glow */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-kivo-blue/15 blur-3xl rounded-full pointer-events-none" />
 
-            <div>
+            <div className="translate-z-4">
               {/* Executive Avatar / Emblem */}
               <div className="relative mb-8 flex items-center justify-between">
-                <div className="relative">
+                <div className="relative translate-z-8">
                   {/* Concentric glowing rings */}
-                  <div className="absolute -inset-1.5 rounded-3xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple opacity-70 blur-md animate-pulse" />
-                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-[#090D1A] border border-white/[0.15] flex items-center justify-center shadow-xl">
+                  <div className="absolute -inset-1.5 rounded-3xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple opacity-75 blur-md animate-pulse" />
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-[#090D1A] border border-white/[0.2] flex items-center justify-center shadow-2xl">
                     <span className="text-3xl sm:text-4xl font-extrabold font-display text-gradient-kivo tracking-wider">
                       SS
                     </span>
@@ -134,11 +134,11 @@ export const CeoSection: React.FC = () => {
                 </div>
 
                 {/* KIVO Co-Founder Badge */}
-                <div className="flex flex-col items-end gap-1.5">
-                  <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.1] p-1.5 flex items-center justify-center">
+                <div className="flex flex-col items-end gap-1.5 translate-z-6">
+                  <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/[0.14] p-1.5 flex items-center justify-center shadow-md">
                     <img src={logoImg} alt="KIVO" className="w-full h-full object-contain" />
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-kivo-cyan/10 border border-kivo-cyan/25 text-[11px] font-semibold text-kivo-cyan">
+                  <span className="badge-3d inline-flex items-center gap-1 px-3 py-1 rounded-full bg-kivo-cyan/15 border border-kivo-cyan/35 text-[11px] font-semibold text-kivo-cyan shadow-sm">
                     Co-Founder
                   </span>
                 </div>
@@ -155,7 +155,7 @@ export const CeoSection: React.FC = () => {
               </div>
 
               {/* Education Card */}
-              <div className="p-4 rounded-2xl bg-black/40 border border-white/[0.08] mb-8 space-y-2">
+              <div className="p-4 rounded-2xl bg-black/50 border border-white/[0.08] mb-8 space-y-2 shadow-inner">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
                   <GraduationCap className="w-4 h-4 text-kivo-cyan flex-shrink-0" />
                   <span>Education</span>
@@ -171,8 +171,8 @@ export const CeoSection: React.FC = () => {
               </div>
             </div>
 
-            {/* Social Profile Links */}
-            <div>
+            {/* Social Profile Links (3D tactile buttons) */}
+            <div className="translate-z-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
                 Connect & Collaborate
               </p>
@@ -181,22 +181,22 @@ export const CeoSection: React.FC = () => {
                   href="https://linkedin.com/in/shaurya-sharma200"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] hover:border-[#0A66C2]/60 text-slate-200 hover:text-white text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-[#0A66C2]/15"
+                  className="btn-3d btn-3d-glass group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border border-white/[0.12] hover:border-[#0A66C2]/60 text-slate-200 hover:text-white text-xs font-semibold transition-all duration-200 shadow-md hover:shadow-[#0A66C2]/20"
                 >
                   <LinkedInIcon className="w-4 h-4 text-[#0A66C2] group-hover:scale-110 transition-transform" />
                   <span>LinkedIn Profile</span>
-                  <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-slate-300 transition-colors ml-auto" />
+                  <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-slate-200 transition-colors ml-auto" />
                 </a>
 
                 <a
                   href="https://github.com/mrshauryasharma"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] hover:border-kivo-purple/60 text-slate-200 hover:text-white text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-kivo-purple/15"
+                  className="btn-3d btn-3d-glass group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border border-white/[0.12] hover:border-kivo-purple/60 text-slate-200 hover:text-white text-xs font-semibold transition-all duration-200 shadow-md hover:shadow-kivo-purple/20"
                 >
                   <GitHubIcon className="w-4 h-4 text-slate-200 group-hover:scale-110 transition-transform" />
                   <span>GitHub Profile</span>
-                  <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-slate-300 transition-colors ml-auto" />
+                  <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-slate-200 transition-colors ml-auto" />
                 </a>
               </div>
             </div>
@@ -210,18 +210,20 @@ export const CeoSection: React.FC = () => {
             transition={{ duration: 0.55 }}
             className="lg:col-span-7 flex flex-col justify-between space-y-6"
           >
-            {/* Professional Profile Narrative Card */}
-            <div className="p-8 sm:p-9 rounded-3xl bg-gradient-to-b from-[#0F1628]/80 to-[#070B14]/90 border border-white/[0.1] backdrop-blur-2xl shadow-xl relative overflow-hidden">
-              <div className="flex items-center gap-2 mb-4 text-xs font-semibold uppercase tracking-wider text-kivo-cyan">
-                <Sparkles className="w-3.5 h-3.5 text-kivo-cyan" />
-                <span>Executive Profile</span>
+            {/* Professional Profile Narrative Card (3D Elevated) */}
+            <div className="p-8 sm:p-9 rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0F1628]/90 to-[#070B14]/95 border border-white/[0.14] backdrop-blur-2xl shadow-xl relative overflow-hidden">
+              <div className="translate-z-4">
+                <div className="flex items-center gap-2 mb-4 text-xs font-semibold uppercase tracking-wider text-kivo-cyan">
+                  <Sparkles className="w-3.5 h-3.5 text-kivo-cyan" />
+                  <span>Executive Profile</span>
+                </div>
+                <h4 className="text-xl sm:text-2xl font-bold text-white font-display mb-4">
+                  Visionary Leadership in Next-Gen Browsing
+                </h4>
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
+                  Shaurya Sharma is the CEO and Co-Founder of KIVO Browser, with a strong interest and expertise in technology, IoT and frontend development. His academic background in Electronics & Communication Engineering with AI & ML, combined with his interest in building modern digital experiences, contributes to his vision for KIVO Browser.
+                </p>
               </div>
-              <h4 className="text-xl sm:text-2xl font-bold text-white font-display mb-4">
-                Visionary Leadership in Next-Gen Browsing
-              </h4>
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-                Shaurya Sharma is the CEO and Co-Founder of KIVO Browser, with a strong interest and expertise in technology, IoT and frontend development. His academic background in Electronics & Communication Engineering with AI & ML, combined with his interest in building modern digital experiences, contributes to his vision for KIVO Browser.
-              </p>
             </div>
 
             {/* Areas of Expertise Grid */}
@@ -243,12 +245,12 @@ export const CeoSection: React.FC = () => {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.35, delay: index * 0.06 }}
-                      className={`group p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] ${item.borderColor} transition-all duration-300 flex items-center gap-3.5 shadow-sm hover:-translate-y-0.5`}
+                      className={`group p-4 rounded-2xl card-3d preserve-3d bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] ${item.borderColor} transition-all duration-300 flex items-center gap-3.5 shadow-md`}
                     >
-                      <div className={`w-10 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform ${item.iconColor}`}>
+                      <div className={`w-10 h-10 rounded-xl bg-white/[0.06] border border-white/[0.1] flex items-center justify-center flex-shrink-0 group-hover:scale-110 translate-z-4 transition-transform ${item.iconColor}`}>
                         <Icon className="w-5 h-5" />
                       </div>
-                      <span className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-white leading-snug">
+                      <span className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-white leading-snug translate-z-2">
                         {item.title}
                       </span>
                     </motion.div>

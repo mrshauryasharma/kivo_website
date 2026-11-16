@@ -268,7 +268,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({
           initial={{ scale: 0.95, opacity: 0, y: 16 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 16 }}
-          className="relative w-full max-w-2xl bg-gradient-to-b from-[#0F1628]/95 via-[#0A0F1E]/95 to-[#070B14]/98 border border-white/10 rounded-3xl shadow-2xl shadow-kivo-blue/15 overflow-hidden my-8 z-10"
+          className="relative w-full max-w-2xl bg-gradient-to-b from-[#0F1628]/98 via-[#0A0F1E]/98 to-[#070B14]/98 border border-white/15 rounded-3xl panel-3d preserve-3d shadow-2xl overflow-hidden my-8 z-10"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4.5 border-b border-white/10 bg-white/[0.02]">
@@ -557,16 +557,16 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                   <button
                     type="submit"
                     disabled={isSubmitting || attachments.some((a) => a.isUploading)}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple text-white text-xs font-bold shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-3.5 rounded-xl btn-3d btn-3d-cyan text-slate-900 text-sm font-bold shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <RefreshCw className="w-4 h-4 animate-spin text-slate-900" />
                         <span>Submitting Ticket...</span>
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4" />
+                        <Send className="w-4 h-4 text-slate-900" />
                         <span>Submit Support Ticket</span>
                       </>
                     )}

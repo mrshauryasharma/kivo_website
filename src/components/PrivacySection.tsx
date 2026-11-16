@@ -70,9 +70,9 @@ export const PrivacySection: React.FC = () => {
           </motion.p>
         </div>
 
-        {/* 2-Column Showcase: Shield Interactive Visual + 4 Privacy Pillars */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-          {/* Left Column: Shield-Themed Visual with Blue and Purple Lighting */}
+        {/* 2-Column Showcase: Shield Interactive Visual + 4 Privacy Pillars (3D Depth) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center perspective-1000">
+          {/* Left Column: Shield-Themed Visual with 3D Depth */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
@@ -83,11 +83,11 @@ export const PrivacySection: React.FC = () => {
             {/* Outer Glow Ring */}
             <div className="absolute -inset-2 bg-gradient-to-r from-kivo-blue/30 via-kivo-cyan/20 to-kivo-purple/30 rounded-3xl blur-2xl opacity-60" />
 
-            <div className="relative rounded-3xl bg-gradient-to-b from-[#0F162A]/90 to-[#0A0D18]/95 border border-white/[0.12] p-6 sm:p-8 backdrop-blur-2xl shadow-2xl">
+            <div className="relative rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0F162A]/95 to-[#0A0D18]/95 border border-white/[0.14] p-6 sm:p-8 backdrop-blur-2xl shadow-2xl">
               {/* Header inside shield panel */}
-              <div className="flex items-center justify-between pb-6 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between pb-6 border-b border-white/[0.08] translate-z-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-kivo-blue to-kivo-purple flex items-center justify-center text-white shadow-glow-blue">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-kivo-blue to-kivo-purple flex items-center justify-center text-white shadow-glow-blue translate-z-6">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
@@ -100,23 +100,23 @@ export const PrivacySection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Interactive Toggle Button */}
+                {/* Interactive Toggle Button (3D tactile) */}
                 <button
                   type="button"
                   onClick={() => setShieldActive(!shieldActive)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  className={`btn-3d flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all translate-z-6 ${
                     shieldActive
-                      ? 'bg-kivo-cyan/15 text-kivo-cyan border-kivo-cyan/30 shadow-[0_0_15px_rgba(0,217,245,0.2)]'
+                      ? 'bg-kivo-cyan/20 text-kivo-cyan border-kivo-cyan/40 shadow-[0_0_15px_rgba(0,217,245,0.25)]'
                       : 'bg-white/5 text-slate-400 border-white/10'
                   }`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${shieldActive ? 'bg-kivo-cyan animate-pulse' : 'bg-slate-500'}`} />
+                  <span className={`w-2 h-2 rounded-full ${shieldActive ? 'bg-kivo-cyan animate-pulse shadow-[0_0_6px_#00D9F5]' : 'bg-slate-500'}`} />
                   <span>{shieldActive ? 'Protection Active' : 'Protection Paused'}</span>
                 </button>
               </div>
 
-              {/* Central Shield Graphic with Blue & Purple Lighting */}
-              <div className="py-8 sm:py-10 flex flex-col items-center justify-center relative">
+              {/* Central Shield Graphic with Blue & Purple Lighting (3D Elevated) */}
+              <div className="py-8 sm:py-10 flex flex-col items-center justify-center relative translate-z-8">
                 {/* Orbiting concentric rings */}
                 <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-full border border-kivo-blue/20 flex items-center justify-center relative animate-spin" style={{ animationDuration: '30s' }}>
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-kivo-cyan rounded-full shadow-[0_0_8px_#00d9f5]" />
@@ -124,13 +124,13 @@ export const PrivacySection: React.FC = () => {
                 </div>
 
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-kivo-purple/30 flex items-center justify-center bg-gradient-to-b from-kivo-blue/10 via-transparent to-kivo-purple/10">
-                    <div className="relative">
+                  <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-kivo-purple/30 flex items-center justify-center bg-gradient-to-b from-kivo-blue/10 via-transparent to-kivo-purple/10 shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+                    <div className="relative translate-z-10">
                       {/* Shield Core */}
                       <Shield
                         className={`w-16 h-16 sm:w-20 sm:h-20 transition-all duration-300 ${
                           shieldActive
-                            ? 'text-white drop-shadow-[0_0_20px_rgba(0,217,245,0.7)]'
+                            ? 'text-white drop-shadow-[0_0_25px_rgba(0,217,245,0.8)]'
                             : 'text-slate-600'
                         }`}
                       />
@@ -147,7 +147,7 @@ export const PrivacySection: React.FC = () => {
               </div>
 
               {/* Live Filter Activity Log */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-2 translate-z-4">
                 <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
                   <span className="flex items-center gap-1.5 font-medium">
                     <Activity className="w-3.5 h-3.5 text-kivo-cyan" />
@@ -161,17 +161,17 @@ export const PrivacySection: React.FC = () => {
                 {trackerExamples.map((item, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-black/40 border border-white/[0.05] text-xs font-mono"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-black/50 border border-white/[0.06] text-xs font-mono shadow-inner"
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <span className={`w-1.5 h-1.5 rounded-full ${shieldActive ? 'bg-kivo-cyan' : 'bg-amber-400'}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${shieldActive ? 'bg-kivo-cyan shadow-[0_0_6px_#00D9F5]' : 'bg-amber-400'}`} />
                       <span className="text-slate-300 truncate max-w-[180px] sm:max-w-xs">{item.name}</span>
                     </div>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded font-sans font-medium ${
                         shieldActive
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                       }`}
                     >
                       {shieldActive ? item.state : 'Allowed'}
@@ -182,7 +182,7 @@ export const PrivacySection: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Right Column: 4 Privacy Pillars */}
+          {/* Right Column: 4 Privacy Pillars (3D Tactile Panels) */}
           <div className="lg:col-span-6 space-y-4 sm:space-y-5">
             {/* Pillar 1: Ad and tracker blocking */}
             <motion.div
@@ -190,10 +190,10 @@ export const PrivacySection: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-white/[0.04] to-transparent border border-white/[0.08] hover:border-kivo-blue/40 transition-all group"
+              className="p-5 sm:p-6 rounded-2xl card-3d preserve-3d bg-gradient-to-r from-white/[0.05] to-[#0D1527]/90 border border-white/[0.1] hover:border-kivo-blue/60 transition-all group shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-kivo-blue/15 border border-kivo-blue/30 flex items-center justify-center text-kivo-blue flex-shrink-0 group-hover:scale-105 transition-transform">
+              <div className="flex items-start gap-4 translate-z-4">
+                <div className="w-10 h-10 rounded-xl bg-kivo-blue/20 border border-kivo-blue/40 flex items-center justify-center text-kivo-blue flex-shrink-0 group-hover:scale-110 translate-z-6 shadow-[0_4px_12px_rgba(8,123,255,0.25)] transition-transform">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
@@ -213,10 +213,10 @@ export const PrivacySection: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-white/[0.04] to-transparent border border-white/[0.08] hover:border-kivo-cyan/40 transition-all group"
+              className="p-5 sm:p-6 rounded-2xl card-3d preserve-3d bg-gradient-to-r from-white/[0.05] to-[#0D1527]/90 border border-white/[0.1] hover:border-kivo-cyan/60 transition-all group shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-kivo-cyan/15 border border-kivo-cyan/30 flex items-center justify-center text-kivo-cyan flex-shrink-0 group-hover:scale-105 transition-transform">
+              <div className="flex items-start gap-4 translate-z-4">
+                <div className="w-10 h-10 rounded-xl bg-kivo-cyan/20 border border-kivo-cyan/40 flex items-center justify-center text-kivo-cyan flex-shrink-0 group-hover:scale-110 translate-z-6 shadow-[0_4px_12px_rgba(0,217,245,0.25)] transition-transform">
                   <EyeOff className="w-5 h-5" />
                 </div>
                 <div>
@@ -236,10 +236,10 @@ export const PrivacySection: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-white/[0.04] to-transparent border border-white/[0.08] hover:border-kivo-purple/40 transition-all group"
+              className="p-5 sm:p-6 rounded-2xl card-3d preserve-3d bg-gradient-to-r from-white/[0.05] to-[#0D1527]/90 border border-white/[0.1] hover:border-kivo-purple/60 transition-all group shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-kivo-purple/15 border border-kivo-purple/30 flex items-center justify-center text-kivo-purple flex-shrink-0 group-hover:scale-105 transition-transform">
+              <div className="flex items-start gap-4 translate-z-4">
+                <div className="w-10 h-10 rounded-xl bg-kivo-purple/20 border border-kivo-purple/40 flex items-center justify-center text-kivo-purple flex-shrink-0 group-hover:scale-110 translate-z-6 shadow-[0_4px_12px_rgba(165,43,250,0.25)] transition-transform">
                   <Layers className="w-5 h-5" />
                 </div>
                 <div>
@@ -259,10 +259,10 @@ export const PrivacySection: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-white/[0.04] to-transparent border border-white/[0.08] hover:border-kivo-blue/40 transition-all group"
+              className="p-5 sm:p-6 rounded-2xl card-3d preserve-3d bg-gradient-to-r from-white/[0.05] to-[#0D1527]/90 border border-white/[0.1] hover:border-kivo-blue/60 transition-all group shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-kivo-blue/15 border border-kivo-blue/30 flex items-center justify-center text-kivo-blue flex-shrink-0 group-hover:scale-105 transition-transform">
+              <div className="flex items-start gap-4 translate-z-4">
+                <div className="w-10 h-10 rounded-xl bg-kivo-blue/20 border border-kivo-blue/40 flex items-center justify-center text-kivo-blue flex-shrink-0 group-hover:scale-110 translate-z-6 shadow-[0_4px_12px_rgba(8,123,255,0.25)] transition-transform">
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>

@@ -22,7 +22,7 @@ setInterval(() => {
       customerSessions.delete(sid);
     }
   }
-}, 60 * 60 * 1000);
+}, 60 * 60 * 1000).unref();
 
 // Password hashing using PBKDF2 (100,000 iterations, SHA-512)
 export function hashPassword(plainPassword) {

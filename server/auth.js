@@ -242,4 +242,4 @@ setInterval(() => {
       activeSessions.delete(id);
     }
   }
-}, 60 * 60 * 1000);
+}, 60 * 60 * 1000).unref();

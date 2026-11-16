@@ -198,16 +198,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
           </button>
         </header>
 
-        {/* Login Box */}
-        <div className="flex-grow flex items-center justify-center px-4 py-12">
+        {/* Login Box (3D Elevated) */}
+        <div className="flex-grow flex items-center justify-center px-4 py-12 perspective-1000">
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
-            className="w-full max-w-md rounded-3xl bg-gradient-to-b from-[#0F1628]/90 via-[#0A0F1D]/90 to-[#070B14]/95 border border-white/[0.1] p-8 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+            className="w-full max-w-md rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0F1628]/95 via-[#0A0F1D]/95 to-[#070B14]/98 border border-white/[0.14] p-8 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
           >
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-kivo-blue/20 to-kivo-cyan/20 border border-kivo-cyan/30 flex items-center justify-center text-kivo-cyan shadow-lg mb-4">
+            <div className="text-center mb-8 translate-z-4">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-kivo-blue/20 to-kivo-cyan/20 border border-kivo-cyan/40 flex items-center justify-center text-kivo-cyan shadow-[0_6px_16px_rgba(0,217,245,0.25)] mb-4 translate-z-6">
                 <Lock className="w-7 h-7" />
               </div>
               <h2 className="text-2xl font-extrabold text-white font-display tracking-tight">
@@ -219,14 +219,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             </div>
 
             {loginError && (
-              <div className="mb-6 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <div className="mb-6 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 translate-z-2">
                 <ShieldCheck className="w-4 h-4 text-rose-400 shrink-0" />
                 <span>{loginError}</span>
               </div>
             )}
 
             {/* Login Form */}
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} className="space-y-5 translate-z-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Admin Username
@@ -238,7 +238,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/40 border border-white/[0.1] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan focus:ring-1 focus:ring-kivo-cyan"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/[0.12] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan focus:ring-1 focus:ring-kivo-cyan shadow-inner"
                     placeholder="kivoadminshaurya"
                   />
                 </div>
@@ -255,7 +255,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/40 border border-white/[0.1] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan focus:ring-1 focus:ring-kivo-cyan"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/[0.12] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-kivo-cyan focus:ring-1 focus:ring-kivo-cyan shadow-inner"
                     placeholder="Enter admin password"
                   />
                 </div>
@@ -264,16 +264,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
               <button
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple font-semibold text-white text-sm shadow-lg shadow-kivo-blue/20 hover:opacity-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3.5 rounded-xl btn-3d btn-3d-cyan font-bold text-slate-900 text-sm shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isLoggingIn ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin text-slate-900" />
                     <span>Verifying Credentials...</span>
                   </>
                 ) : (
                   <>
-                    <KeyRound className="w-4 h-4" />
+                    <KeyRound className="w-4 h-4 text-slate-900" />
                     <span>Unlock Admin Panel</span>
                   </>
                 )}
@@ -317,15 +317,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             </div>
           </div>
 
-          {/* Central Module Tabs */}
-          <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08] overflow-x-auto">
+          {/* Central Module Tabs (3D Tactile) */}
+          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/[0.04] border border-white/[0.08] overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('installers')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'installers'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <Download className="w-3.5 h-3.5" />
@@ -335,10 +335,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               type="button"
               onClick={() => setActiveTab('cms')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'cms'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <FileEdit className="w-3.5 h-3.5" />
@@ -348,10 +348,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               type="button"
               onClick={() => setActiveTab('tickets')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'tickets'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <LifeBuoy className="w-3.5 h-3.5" />
@@ -361,10 +361,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               type="button"
               onClick={() => setActiveTab('users')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'users'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -374,10 +374,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               type="button"
               onClick={() => setActiveTab('analytics')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'analytics'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
@@ -387,10 +387,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               type="button"
               onClick={() => setActiveTab('releases')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'releases'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -400,10 +400,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               type="button"
               onClick={() => setActiveTab('subscribers')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === 'subscribers'
-                  ? 'bg-kivo-cyan/20 text-kivo-cyan border border-kivo-cyan/30 shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  ? 'btn-3d-cyan text-slate-900 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               <Bell className="w-3.5 h-3.5" />
@@ -416,7 +416,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               onClick={onNavigateHome}
               type="button"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-slate-300 hover:text-white border border-white/[0.08] transition-all"
+              className="btn-3d btn-3d-glass flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-200 hover:text-white shadow-md"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>View Website</span>
@@ -425,7 +425,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             <button
               onClick={handleLogout}
               type="button"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-300 border border-rose-500/20 transition-all"
+              className="btn-3d flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-300 border border-rose-500/30 shadow-md"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Logout</span>

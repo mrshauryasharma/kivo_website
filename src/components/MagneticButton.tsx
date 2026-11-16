@@ -3,7 +3,7 @@ import { motion, useSpring, type HTMLMotionProps } from 'framer-motion';
 
 interface MagneticButtonProps extends HTMLMotionProps<'div'> {
   children: React.ReactNode;
-  strength?: number; // pull strength (default 0.2)
+  strength?: number;
   className?: string;
 }
 
@@ -15,7 +15,7 @@ export const MagneticButton: React.FC<MagneticButtonProps> = ({
 }) => {
   const ref = useRef<HTMLDivElement>(null);
 
-  const springConfig = { damping: 15, stiffness: 150, mass: 0.1 };
+  const springConfig = { damping: 15, stiffness: 180, mass: 0.1 };
   const x = useSpring(0, springConfig);
   const y = useSpring(0, springConfig);
 
@@ -43,8 +43,10 @@ export const MagneticButton: React.FC<MagneticButtonProps> = ({
       ref={ref}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      style={{ x, y }}
-      className={`inline-block ${className}`}
+      whileHover={{ scale: 1.03, zIndex: 10 }}
+      whileTap={{ scale: 0.97 }}
+      style={{ x, y, transformStyle: 'preserve-3d' }}
+      className={`inline-block perspective-800 ${className}`}
       {...props}
     >
       {children}

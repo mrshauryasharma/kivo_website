@@ -14,6 +14,7 @@ import { Footer } from './components/Footer';
 import { LegalModal, type LegalTab } from './components/LegalModal';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { EarlyAccessModal } from './components/EarlyAccessModal';
+import { ThreeDCanvas } from './components/ThreeDCanvas';
 import { SupportModal } from './components/SupportModal';
 import { TicketTrackingPortal } from './components/TicketTrackingPortal';
 import { UpdateCenter } from './components/UpdateCenter';
@@ -78,7 +79,8 @@ export function App() {
   if (currentPath.startsWith('/kivoadmin')) {
     return (
       <MotionConfig reducedMotion="user">
-        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans relative">
+          <ThreeDCanvas />
           <CustomCursor />
           <AdminPanel onNavigateHome={() => navigateTo('/')} />
         </div>
@@ -90,7 +92,8 @@ export function App() {
   if (currentPath.startsWith('/track-ticket') || currentPath.startsWith('/support')) {
     return (
       <MotionConfig reducedMotion="user">
-        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans relative">
+          <ThreeDCanvas />
           <CustomCursor />
           <TicketTrackingPortal onNavigateHome={() => navigateTo('/')} />
         </div>
@@ -102,7 +105,8 @@ export function App() {
   if (currentPath.startsWith('/updates')) {
     return (
       <MotionConfig reducedMotion="user">
-        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white font-sans relative">
+          <ThreeDCanvas />
           <CustomCursor />
           <UpdateCenter onNavigateHome={() => navigateTo('/')} />
         </div>
@@ -114,7 +118,10 @@ export function App() {
   return (
     <CmsProvider>
       <MotionConfig reducedMotion="user">
-        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white flex flex-col font-sans">
+        <div className="min-h-screen bg-kivo-bg text-slate-100 selection:bg-kivo-blue/30 selection:text-white flex flex-col font-sans relative">
+          {/* Ambient 3D Depth Particle Canvas */}
+          <ThreeDCanvas />
+
           {/* Custom Premium KIVO Mouse Cursor */}
           <CustomCursor />
 

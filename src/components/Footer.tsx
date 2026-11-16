@@ -62,15 +62,15 @@ export const Footer: React.FC<FooterProps> = ({
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-xs text-slate-300">
+              <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.1] text-xs text-slate-300 shadow-sm">
                 <AndroidIcon className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Android 10+</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-xs text-slate-300">
+              <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.1] text-xs text-slate-300 shadow-sm">
                 <WindowsIcon className="w-3.5 h-3.5 text-kivo-cyan" />
                 <span>Windows 10 / 11</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-xs text-slate-300">
+              <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.1] text-xs text-slate-300 shadow-sm">
                 <AppleIcon className="w-3.5 h-3.5 text-slate-200" />
                 <span>macOS Universal</span>
               </span>

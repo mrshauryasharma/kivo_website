@@ -166,21 +166,21 @@ export const Features: React.FC = () => {
           </motion.p>
         </div>
 
-        {/* 8 Feature Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 8 Feature Cards Grid (3D Depth Perspective) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 perspective-1000">
           {featuresList.map((feature, index) => {
             const Icon = feature.icon;
 
             const glowClasses = {
-              blue: 'group-hover:border-kivo-blue/40 group-hover:shadow-[0_0_25px_-5px_rgba(8,123,255,0.25)]',
-              cyan: 'group-hover:border-kivo-cyan/40 group-hover:shadow-[0_0_25px_-5px_rgba(0,217,245,0.25)]',
-              purple: 'group-hover:border-kivo-purple/40 group-hover:shadow-[0_0_25px_-5px_rgba(165,43,250,0.25)]',
+              blue: 'hover:border-kivo-blue/60 hover:shadow-[0_16px_35px_-8px_rgba(8,123,255,0.35)]',
+              cyan: 'hover:border-kivo-cyan/60 hover:shadow-[0_16px_35px_-8px_rgba(0,217,245,0.35)]',
+              purple: 'hover:border-kivo-purple/60 hover:shadow-[0_16px_35px_-8px_rgba(165,43,250,0.35)]',
             }[feature.color];
 
             const iconColors = {
-              blue: 'bg-kivo-blue/15 text-kivo-blue border-kivo-blue/30',
-              cyan: 'bg-kivo-cyan/15 text-kivo-cyan border-kivo-cyan/30',
-              purple: 'bg-kivo-purple/15 text-kivo-purple border-kivo-purple/30',
+              blue: 'bg-kivo-blue/20 text-kivo-blue border-kivo-blue/40 shadow-[0_4px_12px_rgba(8,123,255,0.25)]',
+              cyan: 'bg-kivo-cyan/20 text-kivo-cyan border-kivo-cyan/40 shadow-[0_4px_12px_rgba(0,217,245,0.25)]',
+              purple: 'bg-kivo-purple/20 text-kivo-purple border-kivo-purple/40 shadow-[0_4px_12px_rgba(165,43,250,0.25)]',
             }[feature.color];
 
             return (
@@ -190,20 +190,20 @@ export const Features: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-40px' }}
                 transition={{ duration: 0.5, delay: index * 0.06 }}
-                className={`group relative p-6 rounded-2xl bg-gradient-to-b from-[#0C1220]/80 to-[#070B13]/90 border border-white/[0.08] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:border-white/20 ${glowClasses} flex flex-col justify-between overflow-hidden`}
+                className={`group relative p-6 rounded-2xl card-3d preserve-3d bg-gradient-to-b from-[#0C1220]/90 to-[#070B13]/95 border border-white/[0.1] backdrop-blur-xl transition-all duration-300 ${glowClasses} flex flex-col justify-between overflow-hidden`}
               >
                 {/* Subtle card top gradient shine on hover */}
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-kivo-cyan/0 to-transparent group-hover:via-kivo-cyan/60 transition-all duration-500" />
 
-                <div>
+                <div className="translate-z-4">
                   {/* Top Bar: Icon + Badge */}
                   <div className="flex items-center justify-between mb-5">
                     <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${iconColors}`}
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 translate-z-8 ${iconColors}`}
                     >
                       <Icon className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-slate-300 transition-colors group-hover:border-white/20">
+                    <span className="badge-3d text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.12] text-slate-200 transition-colors group-hover:border-white/30 translate-z-4">
                       {feature.badge}
                     </span>
                   </div>
@@ -218,10 +218,10 @@ export const Features: React.FC = () => {
                 </div>
 
                 {/* Sub-points */}
-                <div className="pt-4 border-t border-white/[0.06] space-y-2">
+                <div className="pt-4 border-t border-white/[0.08] space-y-2 translate-z-2">
                   {feature.points.map((point, pIdx) => (
                     <div key={pIdx} className="flex items-start gap-2 text-xs text-slate-300">
-                      <div className="w-1.5 h-1.5 rounded-full bg-kivo-cyan mt-1 flex-shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-kivo-cyan mt-1 flex-shrink-0 shadow-[0_0_6px_#00D9F5]" />
                       <span>{point}</span>
                     </div>
                   ))}

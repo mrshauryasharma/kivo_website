@@ -1,0 +1,39 @@
+services:
+  kivo-website:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kivo-website:latest
+    container_name: kivo-browser-web
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - APP_BASE_URL=${APP_BASE_URL:-https://kivobrowser.com}
+      - KIVO_ADMIN_USERNAME=${KIVO_ADMIN_USERNAME:-kivoadmin}
+      - KIVO_ADMIN_PASSWORD=${KIVO_ADMIN_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL}
+      - ADMIN_NOTIFICATION_EMAIL=${ADMIN_NOTIFICATION_EMAIL}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - KIVO_STORAGE_PATH=/app/persistent_data
+    volumes:
+      - kivo_storage_volume:/app/persistent_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  kivo_storage_volume:
+    driver: local

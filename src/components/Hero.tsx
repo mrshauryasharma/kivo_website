@@ -127,24 +127,21 @@ export const Hero: React.FC = () => {
             Meet <strong className="text-white font-medium">KIVO</strong> — a modern browser designed to give you a faster, cleaner, more private, and customizable browsing experience.
           </motion.p>
 
-          {/* Call to Actions with Magnetic Pull */}
+          {/* Call to Actions with Magnetic Pull & Tactile 3D Depth */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8 perspective-800"
           >
             {/* Primary CTA */}
             <MagneticButton strength={0.2} className="w-full sm:w-auto">
               <button
                 onClick={() => scrollTo(hero?.primaryCtaLink || '#download')}
-                className="w-full sm:w-auto relative group rounded-full p-[1px] font-semibold text-white shadow-xl shadow-kivo-blue/20 transition-all duration-300 active:scale-95 hover:shadow-glow-kivo"
+                className="w-full sm:w-auto btn-3d btn-3d-cyan flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full text-base font-bold shadow-xl shadow-kivo-blue/30"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-full animate-gradient-x opacity-95 group-hover:opacity-100 transition-opacity" />
-                <div className="relative flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-gradient-to-r from-kivo-blue via-[#066fdc] to-kivo-purple text-base font-semibold text-white transition-all">
-                  <Download className="w-5 h-5 text-white group-hover:scale-110 transition-transform duration-200" />
-                  <span>{hero?.primaryCtaText || 'Download KIVO'}</span>
-                </div>
+                <Download className="w-5 h-5 text-white" />
+                <span>{hero?.primaryCtaText || 'Download KIVO'}</span>
               </button>
             </MagneticButton>
 
@@ -152,7 +149,7 @@ export const Hero: React.FC = () => {
             <MagneticButton strength={0.15} className="w-full sm:w-auto">
               <button
                 onClick={() => scrollTo(hero?.secondaryCtaLink || '#features')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 hover:text-white border border-white/[0.1] hover:border-kivo-cyan/40 backdrop-blur-md text-base font-medium transition-all group duration-300"
+                className="w-full sm:w-auto btn-3d btn-3d-glass flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-base font-semibold border border-white/10 hover:border-kivo-cyan/50"
               >
                 <span>{hero?.secondaryCtaText || 'Explore Features'}</span>
                 <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-kivo-cyan group-hover:translate-x-1 transition-all" />
@@ -171,34 +168,34 @@ export const Hero: React.FC = () => {
               <span className="text-slate-400">Available for</span>
             </span>
             <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-slate-300">
+              <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] text-slate-300">
                 <AndroidIcon className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="font-medium">Android</span>
+                <span className="font-semibold">Android</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-slate-300">
+              <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] text-slate-300">
                 <WindowsIcon className="w-3.5 h-3.5 text-kivo-cyan" />
-                <span className="font-medium">Windows</span>
+                <span className="font-semibold">Windows</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-slate-300">
+              <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] text-slate-300">
                 <AppleIcon className="w-3.5 h-3.5 text-slate-200" />
-                <span className="font-medium">macOS</span>
+                <span className="font-semibold">macOS</span>
               </span>
             </div>
           </motion.div>
         </div>
 
-        {/* Realistic Browser Interface Showcase Mockup */}
+        {/* Realistic 3D Browser Interface Showcase Mockup */}
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mt-16 sm:mt-20 relative max-w-5xl mx-auto animate-float-mellow"
+          className="mt-16 sm:mt-20 relative max-w-5xl mx-auto perspective-1500"
         >
           {/* Subtle Ambient Behind Mockup */}
-          <div className="absolute -inset-1.5 bg-gradient-to-r from-kivo-blue/30 via-kivo-cyan/30 to-kivo-purple/30 rounded-2xl blur-xl opacity-75 animate-pulse-glow" />
+          <div className="absolute -inset-2 bg-gradient-to-r from-kivo-blue/30 via-kivo-cyan/30 to-kivo-purple/30 rounded-3xl blur-2xl opacity-75 animate-pulse-glow" />
 
-          {/* Browser Window Chrome */}
-          <div className="relative rounded-2xl bg-[#090D18] border border-white/[0.12] shadow-2xl overflow-hidden backdrop-blur-2xl">
+          {/* Browser Window Chrome in 3D Space */}
+          <div className="relative rounded-3xl bg-[#090D18] border border-white/[0.15] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_40px_rgba(0,217,245,0.18)] overflow-hidden backdrop-blur-2xl preserve-3d">
             {/* Titlebar / Tab Strip */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#070A13] border-b border-white/[0.07] select-none">
               {/* Window Controls */}

@@ -77,13 +77,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </a>
 
           {/* Center: Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] backdrop-blur-md">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.18)] preserve-3d">
             {navLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleScrollTo(e, link.href)}
-                className="relative group text-sm font-medium text-slate-300 hover:text-white px-3.5 py-1.5 rounded-full hover:bg-white/[0.06] transition-all duration-200"
+                className="relative group text-sm font-medium text-slate-300 hover:text-white px-3.5 py-1.5 rounded-full hover:bg-white/[0.08] transition-all duration-200"
               >
                 <span>{link.name}</span>
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] w-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple transition-all duration-300 group-hover:w-3/5 rounded-full opacity-0 group-hover:opacity-100" />
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right: Support, Track Ticket, Updates, Account & Download CTA */}
-          <div className="hidden md:flex items-center gap-2 lg:gap-3">
+          <div className="hidden md:flex items-center gap-2 lg:gap-3 perspective-800">
             <a
               href="/track-ticket"
               onClick={(e) => {
@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 if (onNavigate) onNavigate('/track-ticket');
                 else window.location.href = '/track-ticket';
               }}
-              className="text-xs font-semibold text-kivo-cyan hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.06] border border-kivo-cyan/30 hover:border-kivo-cyan/60 transition-colors flex items-center gap-1.5"
+              className="btn-3d btn-3d-glass text-xs font-semibold px-3 py-1.5 rounded-full border border-kivo-cyan/30 hover:border-kivo-cyan/70 text-kivo-cyan hover:text-white flex items-center gap-1.5"
             >
               <LifeBuoy className="w-3.5 h-3.5" />
               <span>Track Ticket</span>
@@ -110,7 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onOpenSupport}
-                className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-colors"
+                className="btn-3d btn-3d-glass text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-full border border-white/10 hover:border-white/25"
               >
                 Support
               </button>
@@ -123,7 +123,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 if (onNavigate) onNavigate('/updates');
                 else window.location.href = '/updates';
               }}
-              className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-colors"
+              className="btn-3d btn-3d-glass text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-full border border-white/10 hover:border-white/25"
             >
               Updates
             </a>
@@ -132,13 +132,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <a
                 href="#download"
                 onClick={(e) => handleScrollTo(e, '#download')}
-                className="relative group overflow-hidden rounded-full p-[1px] focus:outline-none focus-visible:ring-2 focus-visible:ring-kivo-cyan block"
+                className="btn-3d btn-3d-cyan px-4 py-2 rounded-full text-xs font-bold text-white flex items-center gap-2"
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple animate-gradient-x opacity-90 group-hover:opacity-100 transition-opacity" />
-                <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-kivo-bg text-xs font-semibold text-white transition-all duration-300 group-hover:bg-opacity-0">
-                  <Download className="w-3.5 h-3.5 text-kivo-cyan group-hover:text-white transition-colors" />
-                  <span>Download</span>
-                </span>
+                <Download className="w-3.5 h-3.5 text-white" />
+                <span>Download</span>
               </a>
             </MagneticButton>
           </div>
@@ -148,7 +145,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <a
               href="#download"
               onClick={(e) => handleScrollTo(e, '#download')}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-kivo-blue to-kivo-purple text-white shadow-sm"
+              className="btn-3d btn-3d-cyan px-3.5 py-1.5 text-xs font-bold rounded-full text-white"
             >
               Download
             </a>

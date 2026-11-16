@@ -20,7 +20,7 @@ setInterval(() => {
       rateLimits.delete(key);
     }
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 export function apiRateLimiter(type = 'public') {
   const maxRequests = type === 'admin' ? MAX_ADMIN_API_REQUESTS : MAX_PUBLIC_API_REQUESTS;
@@ -336,7 +336,7 @@ setInterval(() => {
       otpLimits.delete(key);
     }
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 export function otpRateLimiter(req, res, next) {
   const ip = req.ip || req.connection?.remoteAddress || 'unknown';

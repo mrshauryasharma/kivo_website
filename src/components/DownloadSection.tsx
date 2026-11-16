@@ -145,41 +145,41 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
           </motion.p>
         </div>
 
-        {/* 1. Android Download Card - FIRST and MOST PROMINENT */}
-        <div className="max-w-5xl mx-auto mb-8">
+        {/* 1. Android Download Card - FIRST and MOST PROMINENT (3D Elevated) */}
+        <div className="max-w-5xl mx-auto mb-8 perspective-1000">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="group relative rounded-3xl bg-gradient-to-b from-[#0B1A1E]/95 via-[#07131B]/95 to-[#060912]/95 border border-emerald-500/30 hover:border-emerald-400/60 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(16,185,129,0.22)] overflow-hidden"
+            className="group relative rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0B1A1E]/95 via-[#07131B]/95 to-[#060912]/95 border border-emerald-500/40 hover:border-emerald-400/70 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 overflow-hidden"
           >
             {/* Accent ambient corner glow */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-kivo-cyan/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center translate-z-4">
               <div className="lg:col-span-7">
                 {/* Card Header: Platform Icon + Status */}
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-sm">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-[0_6px_16px_rgba(16,185,129,0.25)] translate-z-6">
                       <AndroidIcon className="w-7 h-7" />
                     </div>
                     <div>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-bold tracking-wide uppercase text-emerald-400">
+                      <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-[11px] font-bold tracking-wide uppercase text-emerald-400 shadow-sm">
                         Featured Mobile Release
                       </span>
                     </div>
                   </div>
 
                   {androidAvailable ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
+                    <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                       Available Now
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                    <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
                       <Clock className="w-3.5 h-3.5 text-amber-300" />
                       Coming Soon
                     </span>
@@ -189,14 +189,14 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                 {/* Title & Description */}
                 <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 font-display flex items-center gap-2">
                   {android.name}
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-white/10 text-slate-300 font-mono">APK</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-white/10 text-slate-300 font-mono shadow-inner">APK</span>
                 </h3>
                 <p className="text-sm text-slate-400 mb-6 leading-relaxed">
                   Ultra-fast, private mobile browsing engineered for Android smartphones and tablets. Zero trackers, ad-blocking by default, and continuous security.
                 </p>
 
                 {/* Technical Specifications List */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-black/40 p-4 rounded-xl border border-white/[0.06] text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-black/50 p-4 rounded-xl border border-white/[0.08] text-xs shadow-inner">
                   <div>
                     <span className="text-slate-400 block mb-0.5 text-[11px]">Supported OS</span>
                     <span className="font-semibold text-slate-200">{android.osTarget}</span>
@@ -217,20 +217,17 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
               </div>
 
               {/* Right Column: CTA & Notification */}
-              <div className="lg:col-span-5 flex flex-col justify-center">
+              <div className="lg:col-span-5 flex flex-col justify-center translate-z-8">
                 {androidAvailable ? (
                   <MagneticButton strength={0.15} className="w-full">
                     <a
                       href={androidDownloadUrl!}
                       download
                       onClick={(e) => handleDownloadClick(e, android, androidDownloadUrl)}
-                      className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-emerald-500/20 block text-center"
+                      className="w-full btn-3d btn-3d-cyan flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl text-base font-bold text-slate-900 block text-center"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-400 to-kivo-cyan rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
-                      <div className="relative flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-kivo-blue text-base font-bold text-white">
-                        <Download className="w-5 h-5 text-white" />
-                        <span>Download for Android (.apk)</span>
-                      </div>
+                      <Download className="w-5 h-5 text-slate-900 inline-block mr-1" />
+                      <span>Download for Android (.apk)</span>
                     </a>
                   </MagneticButton>
                 ) : (
@@ -239,7 +236,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                       <button
                         type="button"
                         onClick={(e) => handleDownloadClick(e, android)}
-                        className="w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400/50 text-base font-semibold transition-all group/btn shadow-lg shadow-emerald-500/5"
+                        className="w-full btn-3d flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-white border border-emerald-500/40 hover:border-emerald-400/60 text-base font-semibold transition-all group/btn shadow-lg"
                       >
                         <Bell className="w-5 h-5 text-emerald-400 group-hover/btn:scale-110 transition-transform" />
                         <span>Get Android Release Notification</span>
@@ -258,27 +255,27 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
 
         {/* 2 & 3. Windows and macOS Download Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {/* Windows Download Card */}
+          {/* Windows Download Card (3D Elevated) */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="group relative rounded-3xl bg-gradient-to-b from-[#0E1528]/90 to-[#070B14]/95 border border-white/[0.1] hover:border-kivo-blue/40 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-glow-blue flex flex-col justify-between"
+            className="group relative rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0E1528]/95 to-[#070B14]/95 border border-white/[0.12] hover:border-kivo-blue/60 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 flex flex-col justify-between"
           >
-            <div>
+            <div className="translate-z-4">
               {/* Card Header: Platform Icon + Status */}
               <div className="flex items-center justify-between mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-kivo-blue/15 border border-kivo-blue/30 flex items-center justify-center text-kivo-cyan shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-kivo-blue/20 border border-kivo-blue/40 flex items-center justify-center text-kivo-cyan shadow-[0_6px_16px_rgba(30,111,254,0.25)] translate-z-6">
                   <WindowsIcon className="w-7 h-7" />
                 </div>
                 {winAvailable ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
+                  <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     Available Now
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                  <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
                     <Clock className="w-3.5 h-3.5 text-amber-300" />
                     Coming Soon
                   </span>
@@ -294,7 +291,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
               </p>
 
               {/* Technical Specifications List */}
-              <div className="space-y-3 mb-8 bg-black/30 p-4 rounded-xl border border-white/[0.05]">
+              <div className="space-y-3 mb-8 bg-black/40 p-4 rounded-xl border border-white/[0.07] shadow-inner">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">Supported OS:</span>
                   <span className="font-semibold text-slate-200">{windows.osTarget}</span>
@@ -321,20 +318,17 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
             </div>
 
             {/* Download CTA Button */}
-            <div>
+            <div className="translate-z-8">
               {winAvailable ? (
                 <MagneticButton strength={0.15} className="w-full">
                   <a
                     href={winDownloadUrl!}
                     download
                     onClick={(e) => handleDownloadClick(e, windows, winDownloadUrl)}
-                    className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-kivo-blue/20 block text-center"
+                    className="w-full btn-3d btn-3d-cyan flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl text-base font-bold text-slate-900 block text-center"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
-                    <div className="relative flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-kivo-blue to-kivo-purple text-base font-bold text-white">
-                      <Download className="w-5 h-5 text-white" />
-                      <span>Download for Windows (.exe)</span>
-                    </div>
+                    <Download className="w-5 h-5 text-slate-900 inline-block mr-1" />
+                    <span>Download for Windows (.exe)</span>
                   </a>
                 </MagneticButton>
               ) : (
@@ -343,7 +337,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                     <button
                       type="button"
                       onClick={(e) => handleDownloadClick(e, windows)}
-                      className="w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.12] hover:border-kivo-cyan/30 text-base font-semibold transition-all group/btn"
+                      className="w-full btn-3d flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 hover:text-white border border-white/[0.14] hover:border-kivo-cyan/40 text-base font-semibold transition-all group/btn shadow-lg"
                     >
                       <Bell className="w-5 h-5 text-kivo-cyan group-hover/btn:scale-110 transition-transform" />
                       <span>Get Windows Release Notification</span>
@@ -358,27 +352,27 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
             </div>
           </motion.div>
 
-          {/* macOS Download Card */}
+          {/* macOS Download Card (3D Elevated) */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            className="group relative rounded-3xl bg-gradient-to-b from-[#0E1528]/90 to-[#070B14]/95 border border-white/[0.1] hover:border-kivo-purple/40 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-glow-purple flex flex-col justify-between"
+            className="group relative rounded-3xl card-3d preserve-3d bg-gradient-to-b from-[#0E1528]/95 to-[#070B14]/95 border border-white/[0.12] hover:border-kivo-purple/60 p-8 sm:p-10 backdrop-blur-2xl shadow-2xl transition-all duration-300 flex flex-col justify-between"
           >
-            <div>
+            <div className="translate-z-4">
               {/* Card Header: Platform Icon + Status */}
               <div className="flex items-center justify-between mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-kivo-purple/15 border border-kivo-purple/30 flex items-center justify-center text-slate-200 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-kivo-purple/20 border border-kivo-purple/40 flex items-center justify-center text-slate-100 shadow-[0_6px_16px_rgba(147,51,234,0.25)] translate-z-6">
                   <AppleIcon className="w-7 h-7" />
                 </div>
                 {macAvailable || macArmAvailable || macIntelAvailable ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-400">
+                  <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     Available Now
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                  <span className="badge-3d inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
                     <Clock className="w-3.5 h-3.5 text-amber-300" />
                     Coming Soon
                   </span>
@@ -393,14 +387,14 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                 Native build for macOS, supporting Apple Silicon and Intel machines.
               </p>
 
-              {/* Architecture Selector Chips */}
-              <div className="mb-6 flex items-center gap-2 p-1.5 rounded-xl bg-black/40 border border-white/[0.08]">
+              {/* Architecture Selector Chips (3D tactile) */}
+              <div className="mb-6 flex items-center gap-2 p-1.5 rounded-xl bg-black/50 border border-white/[0.08] shadow-inner">
                 <button
                   type="button"
                   onClick={() => setSelectedMacArch('arm64')}
                   className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
                     selectedMacArch === 'arm64'
-                      ? 'bg-kivo-purple/20 text-white border border-kivo-purple/40 shadow-sm font-semibold'
+                      ? 'bg-kivo-purple/30 text-white border border-kivo-purple/50 shadow-[0_2px_8px_rgba(147,51,234,0.3)] font-semibold'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -414,7 +408,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                   onClick={() => setSelectedMacArch('intel')}
                   className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
                     selectedMacArch === 'intel'
-                      ? 'bg-white/10 text-white border border-white/20 shadow-sm font-semibold'
+                      ? 'bg-white/15 text-white border border-white/30 shadow-[0_2px_8px_rgba(255,255,255,0.15)] font-semibold'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -424,7 +418,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
               </div>
 
               {/* Technical Specifications List */}
-              <div className="space-y-3 mb-8 bg-black/30 p-4 rounded-xl border border-white/[0.05]">
+              <div className="space-y-3 mb-8 bg-black/40 p-4 rounded-xl border border-white/[0.07] shadow-inner">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">Supported OS:</span>
                   <span className="font-semibold text-slate-200">{macos.osTarget}</span>
@@ -453,20 +447,17 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
             </div>
 
             {/* Download CTA Button */}
-            <div>
+            <div className="translate-z-8">
               {macAvailable ? (
                 <MagneticButton strength={0.15} className="w-full">
                   <a
                     href={macDownloadUrl!}
                     download
                     onClick={(e) => handleDownloadClick(e, macos, macDownloadUrl)}
-                    className="w-full relative group/btn rounded-2xl p-[1px] font-semibold text-white shadow-xl shadow-kivo-purple/20 block text-center"
+                    className="w-full btn-3d btn-3d-purple flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl text-base font-bold text-white block text-center"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-kivo-blue via-kivo-cyan to-kivo-purple rounded-2xl animate-gradient-x opacity-95 group-hover/btn:opacity-100 transition-opacity" />
-                    <div className="relative flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-gradient-to-r from-kivo-blue to-kivo-purple text-base font-bold text-white">
-                      <Download className="w-5 h-5 text-white" />
-                      <span>Download for macOS {selectedMacArch === 'arm64' ? '(Apple Silicon)' : '(Intel)'}</span>
-                    </div>
+                    <Download className="w-5 h-5 text-white inline-block mr-1" />
+                    <span>Download for macOS {selectedMacArch === 'arm64' ? '(Apple Silicon)' : '(Intel)'}</span>
                   </a>
                 </MagneticButton>
               ) : (
@@ -475,7 +466,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({ onOpenEarlyAcc
                     <button
                       type="button"
                       onClick={(e) => handleDownloadClick(e, macos)}
-                      className="w-full flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.12] hover:border-kivo-purple/30 text-base font-semibold transition-all group/btn"
+                      className="w-full btn-3d flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 hover:text-white border border-white/[0.14] hover:border-kivo-purple/40 text-base font-semibold transition-all group/btn shadow-lg"
                     >
                       <Bell className="w-5 h-5 text-kivo-purple group-hover/btn:scale-110 transition-transform" />
                       <span>Get macOS {selectedMacArch === 'arm64' ? 'ARM' : 'Intel'} Notification</span>

@@ -1,0 +1,32 @@
+# ==============================================================================
+# CodeRabbit Configuration (https://coderabbit.ai)
+# ==============================================================================
+version: "2"
+language: "en-US"
+tone_instructions: "Be concise, practical, and highly focused on production security, Node.js performance, and React 19 best practices."
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+  path_filters:
+    - "!node_modules/**"
+    - "!dist/**"
+    - "!*.zip"
+    - "!public/assets/**"
+  tools:
+    oxlint:
+      enabled: true
+    ast-grep:
+      enabled: true
+
+chat:
+  auto_reply: true

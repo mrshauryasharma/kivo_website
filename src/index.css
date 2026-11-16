@@ -12,7 +12,7 @@
   }
 
   body {
-    background-color: #050505;
+    background-color: #030508;
     color: #f8fafc;
     overflow-x: hidden;
   }
@@ -22,12 +22,12 @@
     width: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: #050505;
+    background: #030508;
   }
   ::-webkit-scrollbar-thumb {
     background: #1e293b;
     border-radius: 4px;
-    border: 2px solid #050505;
+    border: 2px solid #030508;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #334155;
@@ -51,6 +51,187 @@
 }
 
 @layer utilities {
+  /* -------------------------------------------------------------
+     1. KIVO 3D Perspective & Depth Stacking
+     ------------------------------------------------------------- */
+  .perspective-800 {
+    perspective: 800px;
+    transform-style: preserve-3d;
+  }
+  .perspective-1000 {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+  .perspective-1500 {
+    perspective: 1500px;
+    transform-style: preserve-3d;
+  }
+  .perspective-2000 {
+    perspective: 2000px;
+    transform-style: preserve-3d;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  /* Z-axis depth layers */
+  .translate-z-1 { transform: translateZ(4px); }
+  .translate-z-2 { transform: translateZ(8px); }
+  .translate-z-4 { transform: translateZ(16px); }
+  .translate-z-6 { transform: translateZ(24px); }
+  .translate-z-8 { transform: translateZ(32px); }
+  .translate-z-12 { transform: translateZ(48px); }
+  .translate-z-16 { transform: translateZ(64px); }
+
+  /* -------------------------------------------------------------
+     2. Tactile 3D Buttons with Physical Push Feedback
+     ------------------------------------------------------------- */
+  .btn-3d {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+    transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
+    user-select: none;
+    will-change: transform, box-shadow;
+  }
+
+  /* Cyan 3D Neon Button */
+  .btn-3d-cyan {
+    background: linear-gradient(180deg, #00F0FF 0%, #0088FF 100%);
+    color: #ffffff;
+    box-shadow: 
+      0 4px 0 #0050A0,
+      0 10px 20px -3px rgba(0, 240, 255, 0.35),
+      inset 0 1px 1px rgba(255, 255, 255, 0.6),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  .btn-3d-cyan:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 6px 0 #0050A0,
+      0 16px 26px -3px rgba(0, 240, 255, 0.5),
+      inset 0 1px 1px rgba(255, 255, 255, 0.7),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  }
+  .btn-3d-cyan:active {
+    transform: translateY(3px);
+    box-shadow: 
+      0 1px 0 #0050A0,
+      0 4px 8px rgba(0, 240, 255, 0.25),
+      inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  }
+
+  /* Purple 3D Neon Button */
+  .btn-3d-purple {
+    background: linear-gradient(180deg, #BD38FF 0%, #791AF7 100%);
+    color: #ffffff;
+    box-shadow: 
+      0 4px 0 #470D99,
+      0 10px 20px -3px rgba(189, 56, 255, 0.35),
+      inset 0 1px 1px rgba(255, 255, 255, 0.6),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  .btn-3d-purple:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 6px 0 #470D99,
+      0 16px 26px -3px rgba(189, 56, 255, 0.5),
+      inset 0 1px 1px rgba(255, 255, 255, 0.7),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  }
+  .btn-3d-purple:active {
+    transform: translateY(3px);
+    box-shadow: 
+      0 1px 0 #470D99,
+      0 4px 8px rgba(189, 56, 255, 0.25),
+      inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  }
+
+  /* Glassmorphism 3D Button */
+  .btn-3d-glass {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 
+      0 4px 0 rgba(0, 0, 0, 0.5),
+      0 8px 18px rgba(0, 0, 0, 0.5),
+      inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    color: #e2e8f0;
+  }
+  .btn-3d-glass:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    box-shadow: 
+      0 6px 0 rgba(0, 0, 0, 0.5),
+      0 14px 24px rgba(0, 0, 0, 0.6),
+      inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  }
+  .btn-3d-glass:active {
+    transform: translateY(3px);
+    box-shadow: 
+      0 1px 0 rgba(0, 0, 0, 0.5),
+      0 3px 6px rgba(0, 0, 0, 0.4),
+      inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  }
+
+  /* -------------------------------------------------------------
+     3. 3D Volumetric Floating Cards
+     ------------------------------------------------------------- */
+  .card-3d {
+    position: relative;
+    transform-style: preserve-3d;
+    background: linear-gradient(135deg, rgba(14, 21, 38, 0.75) 0%, rgba(7, 11, 20, 0.85) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 
+      0 16px 40px -10px rgba(0, 0, 0, 0.7),
+      0 0 30px -10px rgba(0, 217, 245, 0.1),
+      inset 0 1px 1px rgba(255, 255, 255, 0.15),
+      inset 0 -1px 1px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease;
+    will-change: transform, box-shadow;
+  }
+  .card-3d:hover {
+    transform: translateY(-6px) translateZ(8px);
+    border-color: rgba(0, 217, 245, 0.35);
+    box-shadow: 
+      0 26px 55px -12px rgba(0, 0, 0, 0.85),
+      0 0 40px -5px rgba(0, 217, 245, 0.22),
+      0 0 25px -8px rgba(165, 43, 250, 0.18),
+      inset 0 1px 2px rgba(255, 255, 255, 0.25);
+  }
+
+  /* 3D Embossed Badges */
+  .badge-3d {
+    box-shadow: 
+      0 2px 0 rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* 3D Elevated Panel */
+  .panel-3d {
+    background: linear-gradient(180deg, rgba(12, 17, 30, 0.9) 0%, rgba(6, 9, 16, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 20px 50px -10px rgba(0, 0, 0, 0.9),
+      inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* -------------------------------------------------------------
+     4. Existing Preserved Gradients & Animations
+     ------------------------------------------------------------- */
   .text-gradient-kivo {
     background: linear-gradient(135deg, #087BFF 0%, #00D9F5 50%, #A52BFA 100%);
     -webkit-background-clip: text;
@@ -118,14 +299,32 @@
 
   @keyframes floatMellow {
     0%, 100% {
-      transform: translateY(0px);
+      transform: translateY(0px) rotate(0deg);
     }
     50% {
-      transform: translateY(-8px);
+      transform: translateY(-8px) rotate(0.5deg);
     }
   }
 
   .animate-float-mellow {
     animation: floatMellow 6s ease-in-out infinite;
+  }
+
+  /* 3D Perspective Grid Animation */
+  @keyframes gridPerspectiveMove {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 0 60px;
+    }
+  }
+
+  .bg-perspective-grid {
+    background-size: 50px 50px;
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    animation: gridPerspectiveMove 25s linear infinite;
   }
 }

@@ -52,7 +52,7 @@ setInterval(() => {
   } catch (err) {
     console.error('[KIVO Upload] Error cleaning old chunks:', err);
   }
-}, 30 * 60 * 1000);
+}, 30 * 60 * 1000).unref();
 
 // Initialize a new chunked upload session
 export function initUpload({ platform, filename, version, totalSize, totalChunks }) {
